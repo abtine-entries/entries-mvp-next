@@ -548,8 +548,10 @@ export function ReconciliationPanels({
       {/* Transaction Detail Modal */}
       <TransactionDetailModal
         transactionId={detailModalTxnId}
+        workspaceId={workspaceId}
         onClose={() => setDetailModalTxnId(null)}
         onViewMatchedTransaction={handleViewMatchedTransaction}
+        onCategoryUpdated={() => router.refresh()}
       />
     </div>
   )

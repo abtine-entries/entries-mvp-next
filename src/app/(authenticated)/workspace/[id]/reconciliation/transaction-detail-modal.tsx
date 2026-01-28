@@ -10,14 +10,37 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { ExternalLink, ArrowRight, Sparkles } from 'lucide-react'
-import { getTransactionDetails, TransactionWithDetails } from './actions'
+import { ExternalLink, ArrowRight, Sparkles, Check, ChevronsUpDown } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  getTransactionDetails,
+  TransactionWithDetails,
+  getWorkspaceCategories,
+  getAICategorySuggestion,
+  updateTransactionCategory,
+  CategoryInfo,
+} from './actions'
 
 interface TransactionDetailModalProps {
   transactionId: string | null
+  workspaceId: string
   onClose: () => void
   onViewMatchedTransaction?: (transactionId: string) => void
+  onCategoryUpdated?: () => void
 }
 
 function formatAmount(amount: Transaction['amount']): string {
@@ -64,19 +87,47 @@ function getSourceLabel(source: string): string {
   return source === 'bank' ? 'Bank' : 'QuickBooks'
 }
 
+function getConfidenceBadgeColor(confidence: number): string {
+  if (confidence >= 0.9) return 'bg-green-600 hover:bg-green-600'
+  if (confidence >= 0.7) return 'bg-yellow-500 hover:bg-yellow-500'
+  return 'bg-gray-500 hover:bg-gray-500'
+}
+
+function getConfidenceLabel(confidence: number): string {
+  if (confidence >= 0.9) return 'High'
+  if (confidence >= 0.7) return 'Medium'
+  return 'Low'
+}
+
 export function TransactionDetailModal({
   transactionId,
+  workspaceId,
   onClose,
   onViewMatchedTransaction,
+  onCategoryUpdated,
 }: TransactionDetailModalProps) {
   const [transaction, setTransaction] = useState<TransactionWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Category editing state
+  const [categories, setCategories] = useState<CategoryInfo[]>([])
+  const [aiSuggestion, setAiSuggestion] = useState<{
+    categoryId: string
+    confidence: number
+    reasoning: string
+  } | null>(null)
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [isUpdatingCategory, setIsUpdatingCategory] = useState(false)
+
+  // Fetch transaction details
   useEffect(() => {
     if (!transactionId) {
       setTransaction(null)
       setError(null)
+      setAiSuggestion(null)
+      setSelectedCategoryId(null)
       return
     }
 
@@ -90,6 +141,7 @@ export function TransactionDetailModal({
           setTransaction(null)
         } else {
           setTransaction(result.transaction ?? null)
+          setSelectedCategoryId(result.transaction?.categoryId ?? null)
         }
       })
       .catch((err) => {
@@ -102,9 +154,80 @@ export function TransactionDetailModal({
       })
   }, [transactionId])
 
+  // Fetch categories and AI suggestion when transaction is loaded
+  useEffect(() => {
+    if (!transactionId || !workspaceId) return
+
+    // Fetch categories
+    getWorkspaceCategories(workspaceId).then((result) => {
+      if (result.categories) {
+        setCategories(result.categories)
+      }
+    })
+
+    // Fetch AI suggestion
+    getAICategorySuggestion(transactionId, workspaceId).then((result) => {
+      if (result.suggestion) {
+        setAiSuggestion(result.suggestion)
+      }
+    })
+  }, [transactionId, workspaceId])
+
   const handleViewMatchedTransaction = (matchedTxnId: string) => {
     if (onViewMatchedTransaction) {
       onViewMatchedTransaction(matchedTxnId)
+    }
+  }
+
+  const handleCategorySelect = async (categoryId: string | null) => {
+    if (!transactionId || categoryId === selectedCategoryId) {
+      setCategoryOpen(false)
+      return
+    }
+
+    setIsUpdatingCategory(true)
+    setSelectedCategoryId(categoryId)
+    setCategoryOpen(false)
+
+    try {
+      const result = await updateTransactionCategory(transactionId, workspaceId, categoryId)
+
+      if (result.success) {
+        const categoryName = categoryId
+          ? categories.find((c) => c.id === categoryId)?.name ?? 'Unknown'
+          : 'None'
+        toast.success(`Category updated to "${categoryName}"`)
+
+        // Update local transaction state
+        if (transaction) {
+          const updatedCategory = categoryId
+            ? categories.find((c) => c.id === categoryId)
+            : null
+          setTransaction({
+            ...transaction,
+            categoryId,
+            category: updatedCategory
+              ? {
+                  ...updatedCategory,
+                  workspaceId,
+                  parentId: null,
+                  createdAt: new Date(),
+                }
+              : null,
+          })
+        }
+
+        onCategoryUpdated?.()
+      } else {
+        toast.error(result.error ?? 'Failed to update category')
+        // Revert selection on error
+        setSelectedCategoryId(transaction?.categoryId ?? null)
+      }
+    } catch {
+      toast.error('Failed to update category')
+      setSelectedCategoryId(transaction?.categoryId ?? null)
+    } finally {
+      setIsUpdatingCategory(false)
     }
   }
 
@@ -113,6 +236,14 @@ export function TransactionDetailModal({
     null
 
   const match = transaction?.bankMatches?.[0] || transaction?.qboMatches?.[0] || null
+
+  const selectedCategory = selectedCategoryId
+    ? categories.find((c) => c.id === selectedCategoryId)
+    : null
+
+  const suggestedCategory = aiSuggestion
+    ? categories.find((c) => c.id === aiSuggestion.categoryId)
+    : null
 
   return (
     <Dialog open={!!transactionId} onOpenChange={(open) => !open && onClose()}>
@@ -193,25 +324,117 @@ export function TransactionDetailModal({
               </div>
             </div>
 
-            {/* Category */}
+            {/* Category - Editable Dropdown */}
             <div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
                 Category
               </div>
-              <div className="text-sm">
-                {transaction.category ? (
-                  <span>
-                    {transaction.category.name}
-                    <span className="text-muted-foreground ml-2">
-                      ({transaction.category.type})
+
+              {/* AI Suggestion */}
+              {aiSuggestion && suggestedCategory && (
+                <div className="mb-2 p-2 bg-purple-50 border border-purple-200 rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span className="text-xs text-purple-700 font-medium">
+                      AI Suggestion
                     </span>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground italic">
-                    Not categorized
-                  </span>
-                )}
-              </div>
+                    <Badge
+                      className={cn(
+                        'text-[10px] px-1.5 py-0',
+                        getConfidenceBadgeColor(aiSuggestion.confidence)
+                      )}
+                    >
+                      {getConfidenceLabel(aiSuggestion.confidence)} ({Math.round(aiSuggestion.confidence * 100)}%)
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-purple-800">
+                      {suggestedCategory.name}
+                      <span className="text-purple-600 ml-1 text-xs">
+                        ({suggestedCategory.type})
+                      </span>
+                    </span>
+                    {selectedCategoryId !== aiSuggestion.categoryId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-100"
+                        onClick={() => handleCategorySelect(aiSuggestion.categoryId)}
+                        disabled={isUpdatingCategory}
+                      >
+                        Apply
+                      </Button>
+                    )}
+                  </div>
+                  <div className="text-xs text-purple-600 mt-1 italic">
+                    {aiSuggestion.reasoning}
+                  </div>
+                </div>
+              )}
+
+              {/* Category Dropdown */}
+              <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={categoryOpen}
+                    className="w-full justify-between"
+                    disabled={isUpdatingCategory}
+                  >
+                    {selectedCategory ? (
+                      <span>
+                        {selectedCategory.name}
+                        <span className="text-muted-foreground ml-2">
+                          ({selectedCategory.type})
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Select category...
+                      </span>
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search categories..." />
+                    <CommandList>
+                      <CommandEmpty>No category found.</CommandEmpty>
+                      <CommandGroup>
+                        {categories.map((category) => (
+                          <CommandItem
+                            key={category.id}
+                            value={`${category.name} ${category.type}`}
+                            onSelect={() => handleCategorySelect(category.id)}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                selectedCategoryId === category.id
+                                  ? 'opacity-100'
+                                  : 'opacity-0'
+                              )}
+                            />
+                            <span className="flex-1">{category.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {category.type}
+                            </span>
+                            {aiSuggestion?.categoryId === category.id && (
+                              <Badge
+                                className="ml-2 bg-purple-600 hover:bg-purple-600 text-[10px] px-1.5 py-0"
+                              >
+                                AI
+                              </Badge>
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* AI Reasoning */}

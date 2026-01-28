@@ -713,3 +713,183 @@ export async function bulkApproveHighConfidenceMatches(
     }
   }
 }
+
+// Type for category with basic info
+export interface CategoryInfo {
+  id: string
+  name: string
+  type: string
+}
+
+// Result type for category operations
+export interface UpdateCategoryResult {
+  success: boolean
+  error?: string
+}
+
+// Result type for getting categories
+export interface GetCategoriesResult {
+  categories?: CategoryInfo[]
+  error?: string
+}
+
+// Result type for AI category suggestion
+export interface CategorySuggestionResult {
+  suggestion?: {
+    categoryId: string
+    confidence: number
+    reasoning: string
+  }
+  error?: string
+}
+
+/**
+ * Get all categories for a workspace
+ */
+export async function getWorkspaceCategories(
+  workspaceId: string
+): Promise<GetCategoriesResult> {
+  try {
+    const categories = await prisma.category.findMany({
+      where: { workspaceId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    return { categories }
+  } catch (error) {
+    console.error('Failed to fetch categories:', error)
+    return { error: 'Failed to load categories' }
+  }
+}
+
+/**
+ * Get AI-suggested category for a transaction
+ */
+export async function getAICategorySuggestion(
+  transactionId: string,
+  workspaceId: string
+): Promise<CategorySuggestionResult> {
+  try {
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: transactionId, workspaceId },
+    })
+
+    if (!transaction) {
+      return { error: 'Transaction not found' }
+    }
+
+    const categories = await prisma.category.findMany({
+      where: { workspaceId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+      },
+    })
+
+    // Import and use the mock AI categorization service
+    const { suggestCategory } = await import('@/lib/services/mock-ai-categorization')
+
+    const suggestion = suggestCategory(
+      {
+        id: transaction.id,
+        description: transaction.description,
+        amount: Number(transaction.amount),
+      },
+      categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        type: c.type as 'expense' | 'income' | 'asset' | 'liability',
+      }))
+    )
+
+    return { suggestion }
+  } catch (error) {
+    console.error('Failed to get AI category suggestion:', error)
+    return { error: 'Failed to get AI suggestion' }
+  }
+}
+
+/**
+ * Update a transaction's category and create an audit log entry
+ */
+export async function updateTransactionCategory(
+  transactionId: string,
+  workspaceId: string,
+  categoryId: string | null
+): Promise<UpdateCategoryResult> {
+  try {
+    // Get the current user session
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // Verify transaction exists and belongs to this workspace
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: transactionId, workspaceId },
+      include: { category: true },
+    })
+
+    if (!transaction) {
+      return { success: false, error: 'Transaction not found' }
+    }
+
+    // If categoryId is provided, verify it belongs to this workspace
+    let newCategory = null
+    if (categoryId) {
+      newCategory = await prisma.category.findFirst({
+        where: { id: categoryId, workspaceId },
+      })
+
+      if (!newCategory) {
+        return { success: false, error: 'Category not found' }
+      }
+    }
+
+    // Update transaction and create audit log in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Update the transaction
+      await tx.transaction.update({
+        where: { id: transactionId },
+        data: { categoryId },
+      })
+
+      // Create audit log entry
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          userId: session.user.id,
+          action: 'category_updated',
+          entityType: 'Transaction',
+          entityId: transactionId,
+          oldValue: transaction.category
+            ? JSON.stringify({
+                categoryId: transaction.categoryId,
+                categoryName: transaction.category.name,
+              })
+            : null,
+          newValue: newCategory
+            ? JSON.stringify({
+                categoryId: newCategory.id,
+                categoryName: newCategory.name,
+              })
+            : null,
+        },
+      })
+    })
+
+    // Revalidate the reconciliation page
+    revalidatePath(`/workspace/${workspaceId}/reconciliation`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update transaction category:', error)
+    return { success: false, error: 'Failed to update category. Please try again.' }
+  }
+}
