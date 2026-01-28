@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import {
   Card,
   CardHeader,
@@ -36,26 +37,28 @@ export function WorkspaceCard({
   workspace: WorkspaceWithCounts
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{workspace.name}</CardTitle>
-        <CardDescription>
-          Last sync: {formatLastSync(workspace.lastSyncAt)}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2">
-          <span
-            className={
-              workspace.pendingCount > 0
-                ? 'text-yellow-600 font-medium'
-                : 'text-muted-foreground'
-            }
-          >
-            {workspace.pendingCount} pending
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+    <Link href={`/workspace/${workspace.id}`} className="block">
+      <Card className="transition-colors hover:border-primary hover:bg-muted/50 cursor-pointer">
+        <CardHeader>
+          <CardTitle>{workspace.name}</CardTitle>
+          <CardDescription>
+            Last sync: {formatLastSync(workspace.lastSyncAt)}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <span
+              className={
+                workspace.pendingCount > 0
+                  ? 'text-yellow-600 font-medium'
+                  : 'text-muted-foreground'
+              }
+            >
+              {workspace.pendingCount} pending
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
