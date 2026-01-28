@@ -113,12 +113,12 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        'flex h-screen flex-col border-r border-border bg-[hsl(220,7%,15%)] transition-all duration-200',
+        'flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200',
         collapsed ? 'w-16' : 'w-60'
       )}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center justify-between px-4 border-b border-border">
+      <div className="flex h-14 items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2">
             <Image
@@ -151,10 +151,10 @@ export function Sidebar({
             key={item.href}
             href={item.href}
             className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150',
               isActive(item.href)
-                ? 'bg-[hsl(220,7%,18%)] text-foreground'
-                : 'text-muted-foreground hover:bg-[hsl(220,7%,18%)] hover:text-foreground'
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
             )}
           >
             <item.icon className="h-4 w-4 shrink-0" />
@@ -207,8 +207,8 @@ export function Sidebar({
                     setSearchQuery('')
                   }}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-muted',
-                    currentWorkspace?.id === ws.id && 'bg-[hsl(214,50%,25%)]'
+                    'flex items-center gap-3 px-3 py-2 text-sm transition-colors duration-150 hover:bg-accent',
+                    currentWorkspace?.id === ws.id && 'bg-primary/20'
                   )}
                 >
                   <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -223,7 +223,7 @@ export function Sidebar({
               <Link
                 href="/?create=true"
                 onClick={() => setWorkspaceSwitcherOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add Client</span>
@@ -239,7 +239,7 @@ export function Sidebar({
           {getWorkspaceNavSections(currentWorkspace.id).map((section) => (
             <div key={section.title} className="mb-4">
               {!collapsed && (
-                <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
                   {section.title}
                 </div>
               )}
@@ -248,10 +248,10 @@ export function Sidebar({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150',
                     isActive(item.href)
-                      ? 'bg-[hsl(220,7%,18%)] text-foreground'
-                      : 'text-muted-foreground hover:bg-[hsl(220,7%,18%)] hover:text-foreground'
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
@@ -264,11 +264,11 @@ export function Sidebar({
       )}
 
       {/* Collapse button */}
-      <div className="border-t border-border p-2">
+      <div className="border-t border-sidebar-border p-2">
         <Button
           variant="ghost"
           className={cn(
-            'w-full justify-start gap-3 text-muted-foreground hover:text-foreground',
+            'w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors duration-150',
             collapsed && 'justify-center px-0'
           )}
           onClick={onToggleCollapse}
