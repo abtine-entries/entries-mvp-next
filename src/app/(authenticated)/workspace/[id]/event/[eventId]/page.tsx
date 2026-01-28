@@ -7,6 +7,118 @@ import { Activity, Building2 } from 'lucide-react'
 import { PropertiesSection } from './properties-section'
 import { NotesSection } from './notes-section'
 import { AuditTrailSection } from './audit-trail-section'
+import { EntityDetails } from './entity-details'
+
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'error' | 'info'
+
+interface EntityDetail {
+  label: string
+  value: string | null
+  badge?: {
+    variant: BadgeVariant
+  }
+}
+
+function formatCurrency(amount: number | { toNumber(): number }): string {
+  const num = typeof amount === 'number' ? amount : amount.toNumber()
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num)
+}
+
+function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(date)
+}
+
+function getStatusBadgeVariant(status: string): 'success' | 'warning' | 'error' | 'info' | 'outline' | 'secondary' {
+  switch (status) {
+    case 'matched': return 'success'
+    case 'pending': return 'warning'
+    case 'unmatched': return 'outline'
+    case 'resolved': return 'success'
+    case 'dismissed': return 'secondary'
+    case 'open': return 'warning'
+    default: return 'outline'
+  }
+}
+
+function getSeverityBadgeVariant(severity: string): 'error' | 'warning' | 'info' {
+  switch (severity) {
+    case 'high': return 'error'
+    case 'medium': return 'warning'
+    case 'low': return 'info'
+    default: return 'info'
+  }
+}
+
+function getSourceLabel(source: string): string {
+  switch (source) {
+    case 'bank': return 'Bank (Plaid)'
+    case 'qbo': return 'QuickBooks'
+    default: return source
+  }
+}
+
+async function fetchEntityDetails(entityType: string, entityId: string): Promise<EntityDetail[]> {
+  switch (entityType) {
+    case 'transaction': {
+      const txn = await prisma.transaction.findUnique({
+        where: { id: entityId },
+        include: { category: { select: { name: true } } },
+      })
+      if (!txn) return []
+      return [
+        { label: 'Amount', value: formatCurrency(txn.amount) },
+        { label: 'Date', value: formatDate(txn.date) },
+        { label: 'Source', value: getSourceLabel(txn.source), badge: { variant: txn.source === 'bank' ? 'info' : 'secondary' } },
+        { label: 'Status', value: txn.status, badge: { variant: getStatusBadgeVariant(txn.status) } },
+        { label: 'Category', value: txn.category?.name ?? null },
+        { label: 'Confidence', value: txn.confidence != null ? `${Math.round(txn.confidence * 100)}%` : null },
+      ]
+    }
+    case 'match': {
+      const match = await prisma.match.findUnique({
+        where: { id: entityId },
+        include: {
+          bankTransaction: { select: { description: true } },
+          qboTransaction: { select: { description: true } },
+        },
+      })
+      if (!match) return []
+      return [
+        { label: 'Bank Transaction', value: match.bankTransaction.description },
+        { label: 'QBO Transaction', value: match.qboTransaction.description },
+        { label: 'Match Type', value: match.matchType, badge: { variant: match.matchType === 'exact' ? 'success' : match.matchType === 'manual' ? 'info' : 'warning' } },
+        { label: 'Confidence', value: `${Math.round(match.confidence * 100)}%` },
+      ]
+    }
+    case 'anomaly': {
+      const anomaly = await prisma.anomaly.findUnique({
+        where: { id: entityId },
+      })
+      if (!anomaly) return []
+      return [
+        { label: 'Severity', value: anomaly.severity, badge: { variant: getSeverityBadgeVariant(anomaly.severity) } },
+        { label: 'Type', value: anomaly.type },
+        { label: 'Status', value: anomaly.status, badge: { variant: getStatusBadgeVariant(anomaly.status) } },
+        { label: 'Suggested Resolution', value: anomaly.suggestedResolution },
+      ]
+    }
+    case 'rule': {
+      const rule = await prisma.rule.findUnique({
+        where: { id: entityId },
+        include: { category: { select: { name: true } } },
+      })
+      if (!rule) return []
+      return [
+        { label: 'Rule Text', value: rule.ruleText },
+        { label: 'Category', value: rule.category.name },
+        { label: 'Active', value: rule.isActive ? 'Yes' : 'No', badge: { variant: rule.isActive ? 'success' : 'outline' } },
+        { label: 'Match Count', value: String(rule.matchCount) },
+      ]
+    }
+    default:
+      return []
+  }
+}
 
 interface EventPageProps {
   params: Promise<{ id: string; eventId: string }>
@@ -39,6 +151,8 @@ export default async function EventPage({ params }: EventPageProps) {
   if (!event || event.workspaceId !== workspaceId) {
     notFound()
   }
+
+  const entityDetails = await fetchEntityDetails(event.entityType, event.entityId)
 
   const propertyDefinitions = await prisma.eventPropertyDefinition.findMany({
     where: { workspaceId },
@@ -84,9 +198,12 @@ export default async function EventPage({ params }: EventPageProps) {
       <div className="flex-1 p-6 overflow-auto">
         <div className="max-w-4xl space-y-6">
           {/* Header */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{event.title}</h1>
-            <Badge variant="outline">{event.entityType}</Badge>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">{event.title}</h1>
+              <Badge variant="outline">{event.entityType}</Badge>
+            </div>
+            <EntityDetails details={entityDetails} />
           </div>
 
           {/* Properties Section */}
