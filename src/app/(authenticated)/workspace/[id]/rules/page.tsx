@@ -39,7 +39,7 @@ export default async function RulesPage({ params }: RulesPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Writeoff', href: '/' },
+          { label: 'Entries', href: '/' },
           { label: workspace.name, href: `/workspace/${workspace.id}/event-feed` },
           { label: 'Rules' },
         ]}

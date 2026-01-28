@@ -3,6 +3,7 @@ import { getWorkspaces } from './actions'
 import { WorkspaceCard } from './workspace-card'
 import { WorkspaceListSkeleton } from './workspace-list-skeleton'
 import { CreateWorkspaceModal } from './create-workspace-modal'
+import { PageHeader } from '@/components/layout'
 
 async function WorkspaceList() {
   const workspaces = await getWorkspaces()
@@ -28,14 +29,19 @@ async function WorkspaceList() {
 
 export default function HomePage() {
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Your Workspaces</h2>
-        <CreateWorkspaceModal />
+    <div className="flex flex-col h-full">
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Entries', href: '/' },
+          { label: 'Clients' },
+        ]}
+        actions={<CreateWorkspaceModal />}
+      />
+      <div className="flex-1 p-6">
+        <Suspense fallback={<WorkspaceListSkeleton />}>
+          <WorkspaceList />
+        </Suspense>
       </div>
-      <Suspense fallback={<WorkspaceListSkeleton />}>
-        <WorkspaceList />
-      </Suspense>
     </div>
   )
 }
