@@ -1,12 +1,16 @@
 import { Transaction } from '@/generated/prisma/client'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Check } from 'lucide-react'
 import type { MatchSuggestion } from './actions'
 
 interface TransactionRowProps {
   transaction: Transaction
   isSelected?: boolean
+  isSuggestionHighlighted?: boolean
   onClick?: () => void
+  onApproveClick?: () => void
   matchSuggestion?: MatchSuggestion
 }
 
@@ -60,13 +64,20 @@ function getMatchTypeLabel(matchType: string): string {
 export function TransactionRow({
   transaction,
   isSelected = false,
+  isSuggestionHighlighted = false,
   onClick,
+  onApproveClick,
   matchSuggestion,
 }: TransactionRowProps) {
   const amount = Number(transaction.amount)
   const isPositive = amount >= 0
   const hasSuggestion = !!matchSuggestion
   const confidenceLevel = hasSuggestion ? getConfidenceLevel(matchSuggestion.confidence) : null
+
+  const handleApproveClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onApproveClick?.()
+  }
 
   return (
     <div
@@ -75,14 +86,16 @@ export function TransactionRow({
         onClick && 'cursor-pointer',
         isSelected
           ? 'bg-primary/10 border-l-2 border-l-primary'
-          : hasSuggestion
-            ? cn(
-                'border-l-2',
-                confidenceLevel === 'high' && 'bg-green-50 border-l-green-500',
-                confidenceLevel === 'medium' && 'bg-yellow-50 border-l-yellow-500',
-                confidenceLevel === 'low' && 'bg-red-50 border-l-red-400'
-              )
-            : onClick ? 'hover:bg-muted/50' : ''
+          : isSuggestionHighlighted
+            ? 'bg-primary/20 border-l-2 border-l-primary ring-2 ring-primary ring-inset'
+            : hasSuggestion
+              ? cn(
+                  'border-l-2 cursor-pointer hover:bg-opacity-75',
+                  confidenceLevel === 'high' && 'bg-green-50 border-l-green-500',
+                  confidenceLevel === 'medium' && 'bg-yellow-50 border-l-yellow-500',
+                  confidenceLevel === 'low' && 'bg-red-50 border-l-red-400'
+                )
+              : onClick ? 'hover:bg-muted/50' : ''
       )}
       onClick={onClick}
       title={hasSuggestion ? matchSuggestion.reasoning : undefined}
@@ -115,14 +128,26 @@ export function TransactionRow({
           </div>
         )}
       </div>
-      <span
-        className={cn(
-          'text-sm font-medium flex-shrink-0 ml-2',
-          isPositive ? 'text-green-600' : 'text-red-600'
+      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+        <span
+          className={cn(
+            'text-sm font-medium',
+            isPositive ? 'text-green-600' : 'text-red-600'
+          )}
+        >
+          {formatAmount(transaction.amount)}
+        </span>
+        {isSuggestionHighlighted && (
+          <Button
+            size="sm"
+            className="h-7 px-2 gap-1 bg-green-600 hover:bg-green-700"
+            onClick={handleApproveClick}
+          >
+            <Check className="h-3.5 w-3.5" />
+            Approve
+          </Button>
         )}
-      >
-        {formatAmount(transaction.amount)}
-      </span>
+      </div>
     </div>
   )
 }

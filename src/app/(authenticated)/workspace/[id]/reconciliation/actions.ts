@@ -2,12 +2,89 @@
 
 import { Transaction } from '@/generated/prisma/client'
 import type { MatchType } from '@/lib/services/mock-ai-matching'
+import { prisma } from '@/lib/prisma'
+import { revalidatePath } from 'next/cache'
 
 export interface MatchSuggestion {
   qboTxnId: string
   confidence: number
   matchType: MatchType
   reasoning: string
+}
+
+export interface ApproveMatchResult {
+  success: boolean
+  error?: string
+  matchId?: string
+}
+
+/**
+ * Approve a suggested match between a bank and QBO transaction
+ * Creates a Match record and updates both transactions to 'matched' status
+ */
+export async function approveMatch(
+  workspaceId: string,
+  bankTransactionId: string,
+  qboTransactionId: string,
+  matchType: MatchType,
+  confidence: number,
+  reasoning: string
+): Promise<ApproveMatchResult> {
+  try {
+    // Verify both transactions exist and belong to this workspace
+    const [bankTxn, qboTxn] = await Promise.all([
+      prisma.transaction.findFirst({
+        where: { id: bankTransactionId, workspaceId },
+      }),
+      prisma.transaction.findFirst({
+        where: { id: qboTransactionId, workspaceId },
+      }),
+    ])
+
+    if (!bankTxn || !qboTxn) {
+      return { success: false, error: 'One or both transactions not found' }
+    }
+
+    if (bankTxn.status === 'matched' || qboTxn.status === 'matched') {
+      return { success: false, error: 'One or both transactions already matched' }
+    }
+
+    // Create match and update transactions in a transaction
+    const match = await prisma.$transaction(async (tx) => {
+      // Create the match record
+      const newMatch = await tx.match.create({
+        data: {
+          workspaceId,
+          bankTransactionId,
+          qboTransactionId,
+          matchType,
+          confidence,
+          reasoning,
+        },
+      })
+
+      // Update both transactions to matched status
+      await tx.transaction.update({
+        where: { id: bankTransactionId },
+        data: { status: 'matched' },
+      })
+
+      await tx.transaction.update({
+        where: { id: qboTransactionId },
+        data: { status: 'matched' },
+      })
+
+      return newMatch
+    })
+
+    // Revalidate the reconciliation page to show updated state
+    revalidatePath(`/workspace/${workspaceId}/reconciliation`)
+
+    return { success: true, matchId: match.id }
+  } catch (error) {
+    console.error('Failed to approve match:', error)
+    return { success: false, error: 'Failed to approve match. Please try again.' }
+  }
 }
 
 /**

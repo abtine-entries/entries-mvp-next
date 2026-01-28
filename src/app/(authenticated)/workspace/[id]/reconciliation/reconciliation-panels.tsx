@@ -1,24 +1,31 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, FileSpreadsheet } from 'lucide-react'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
-import { getMatchSuggestionsForTransaction, MatchSuggestion } from './actions'
+import { getMatchSuggestionsForTransaction, approveMatch, MatchSuggestion } from './actions'
+import { toast } from 'sonner'
 
 interface ReconciliationPanelsProps {
+  workspaceId: string
   bankTransactions: Transaction[]
   qboTransactions: Transaction[]
 }
 
 export function ReconciliationPanels({
+  workspaceId,
   bankTransactions,
   qboTransactions,
 }: ReconciliationPanelsProps) {
+  const router = useRouter()
   const [selectedBankTxnId, setSelectedBankTxnId] = useState<string | null>(null)
+  const [highlightedSuggestionId, setHighlightedSuggestionId] = useState<string | null>(null)
   const [matchSuggestions, setMatchSuggestions] = useState<MatchSuggestion[]>([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [isApproving, setIsApproving] = useState(false)
 
   // Get suggestion for a specific QBO transaction
   const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
@@ -29,16 +36,19 @@ export function ReconciliationPanels({
   useEffect(() => {
     if (!selectedBankTxnId) {
       setMatchSuggestions([])
+      setHighlightedSuggestionId(null)
       return
     }
 
     const selectedBankTxn = bankTransactions.find(t => t.id === selectedBankTxnId)
     if (!selectedBankTxn) {
       setMatchSuggestions([])
+      setHighlightedSuggestionId(null)
       return
     }
 
     setIsLoadingSuggestions(true)
+    setHighlightedSuggestionId(null)
     getMatchSuggestionsForTransaction(selectedBankTxn, qboTransactions)
       .then(suggestions => {
         setMatchSuggestions(suggestions)
@@ -57,6 +67,49 @@ export function ReconciliationPanels({
     setSelectedBankTxnId((prev) =>
       prev === transactionId ? null : transactionId
     )
+  }
+
+  const handleSuggestionClick = (qboTxnId: string) => {
+    // Toggle highlight: clicking the same suggestion deselects it
+    setHighlightedSuggestionId((prev) =>
+      prev === qboTxnId ? null : qboTxnId
+    )
+  }
+
+  const handleApproveMatch = async () => {
+    if (!selectedBankTxnId || !highlightedSuggestionId) return
+
+    const suggestion = matchSuggestions.find(s => s.qboTxnId === highlightedSuggestionId)
+    if (!suggestion) return
+
+    setIsApproving(true)
+    try {
+      const result = await approveMatch(
+        workspaceId,
+        selectedBankTxnId,
+        highlightedSuggestionId,
+        suggestion.matchType,
+        suggestion.confidence,
+        suggestion.reasoning
+      )
+
+      if (result.success) {
+        toast.success('Match approved successfully')
+        // Reset selection state
+        setSelectedBankTxnId(null)
+        setHighlightedSuggestionId(null)
+        setMatchSuggestions([])
+        // Refresh the page to get updated data
+        router.refresh()
+      } else {
+        toast.error(result.error || 'Failed to approve match')
+      }
+    } catch (error) {
+      console.error('Failed to approve match:', error)
+      toast.error('Failed to approve match. Please try again.')
+    } finally {
+      setIsApproving(false)
+    }
   }
 
   return (
@@ -119,11 +172,15 @@ export function ReconciliationPanels({
             <div className="divide-y">
               {qboTransactions.map((txn) => {
                 const suggestion = getSuggestionForQbo(txn.id)
+                const isHighlighted = highlightedSuggestionId === txn.id
                 return (
                   <TransactionRow
                     key={txn.id}
                     transaction={txn}
                     matchSuggestion={suggestion}
+                    isSuggestionHighlighted={isHighlighted}
+                    onClick={suggestion ? () => handleSuggestionClick(txn.id) : undefined}
+                    onApproveClick={isHighlighted && !isApproving ? handleApproveMatch : undefined}
                   />
                 )
               })}

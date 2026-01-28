@@ -10,14 +10,14 @@ export default async function ReconciliationPage({
 }: ReconciliationPageProps) {
   const { id } = await params
 
-  // Fetch bank and QBO transactions in parallel
+  // Fetch bank and QBO transactions in parallel (only unmatched/pending for reconciliation)
   const [bankTransactions, qboTransactions] = await Promise.all([
     prisma.transaction.findMany({
-      where: { workspaceId: id, source: 'bank' },
+      where: { workspaceId: id, source: 'bank', status: { not: 'matched' } },
       orderBy: { date: 'desc' },
     }),
     prisma.transaction.findMany({
-      where: { workspaceId: id, source: 'qbo' },
+      where: { workspaceId: id, source: 'qbo', status: { not: 'matched' } },
       orderBy: { date: 'desc' },
     }),
   ])
@@ -27,6 +27,7 @@ export default async function ReconciliationPage({
       <h2 className="text-lg font-semibold">Transaction Reconciliation</h2>
 
       <ReconciliationPanels
+        workspaceId={id}
         bankTransactions={bankTransactions}
         qboTransactions={qboTransactions}
       />
