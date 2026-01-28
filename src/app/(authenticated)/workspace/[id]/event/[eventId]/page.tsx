@@ -3,10 +3,10 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { Activity, Building2, History } from 'lucide-react'
+import { Activity, Building2 } from 'lucide-react'
 import { PropertiesSection } from './properties-section'
 import { NotesSection } from './notes-section'
+import { AuditTrailSection } from './audit-trail-section'
 
 interface EventPageProps {
   params: Promise<{ id: string; eventId: string }>
@@ -45,6 +45,31 @@ export default async function EventPage({ params }: EventPageProps) {
     select: { id: true, name: true, type: true, options: true, position: true },
     orderBy: { position: 'asc' },
   })
+
+  // Fetch audit logs for both the Event entity AND the underlying entity
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      workspaceId,
+      OR: [
+        { entityType: 'Event', entityId: eventId },
+        { entityType: event.entityType, entityId: event.entityId },
+      ],
+    },
+    include: {
+      user: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const auditEntries = auditLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    userId: log.userId,
+    userName: log.user.name,
+    oldValue: log.oldValue,
+    newValue: log.newValue,
+    createdAt: log.createdAt.toISOString(),
+  }))
 
   return (
     <div className="flex flex-col h-full">
@@ -86,14 +111,7 @@ export default async function EventPage({ params }: EventPageProps) {
           />
 
           {/* Audit Trail Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <History className="h-4 w-4" />
-                Audit Trail
-              </CardTitle>
-            </CardHeader>
-          </Card>
+          <AuditTrailSection entries={auditEntries} />
         </div>
       </div>
     </div>
