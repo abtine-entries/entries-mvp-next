@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
+import { revalidatePath } from 'next/cache'
 
 export type WorkspaceWithCounts = {
   id: string
@@ -34,4 +35,38 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
     lastSyncAt: workspace.lastSyncAt,
     pendingCount: workspace.transactions.length,
   }))
+}
+
+export type CreateWorkspaceResult = {
+  success: boolean
+  error?: string
+  workspaceId?: string
+}
+
+export async function createWorkspace(name: string): Promise<CreateWorkspaceResult> {
+  const session = await auth()
+
+  if (!session?.user?.id) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    return { success: false, error: 'Workspace name is required' }
+  }
+
+  try {
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: trimmedName,
+        userId: session.user.id,
+        qboStatus: 'connected',
+      },
+    })
+
+    revalidatePath('/')
+    return { success: true, workspaceId: workspace.id }
+  } catch {
+    return { success: false, error: 'Failed to create workspace' }
+  }
 }
