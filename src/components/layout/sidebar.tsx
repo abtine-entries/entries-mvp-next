@@ -118,30 +118,27 @@ export function Sidebar({
       )}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center justify-between px-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/entries-icon.png"
-              alt="Entries"
-              width={24}
-              height={24}
-              className="h-6 w-6 rounded-[3px] flex-shrink-0"
-            />
-            <span className="font-heading text-sm font-semibold text-sidebar-accent-foreground">Entries</span>
-          </Link>
-        )}
-        {collapsed && (
-          <Link href="/" className="mx-auto">
-            <Image
-              src="/entries-icon.png"
-              alt="Entries"
-              width={24}
-              height={24}
-              className="h-6 w-6 rounded-[3px]"
-            />
-          </Link>
-        )}
+      <div className={cn('flex flex-col gap-2 pt-3', collapsed ? 'px-2' : 'px-3')}>
+        <Link
+          href="/"
+          className={cn(
+            'flex items-center gap-3 py-1.5 rounded-md min-h-[36px]',
+            collapsed ? 'justify-center px-2' : 'px-3'
+          )}
+        >
+          <Image
+            src="/entries-icon.png"
+            alt="Entries"
+            width={24}
+            height={24}
+            className="h-6 w-6 rounded-[3px] flex-shrink-0"
+          />
+          {!collapsed && (
+            <span className="font-heading text-sm font-semibold text-sidebar-accent-foreground">
+              Entries
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Top nav items */}
