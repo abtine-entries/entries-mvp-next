@@ -151,7 +151,7 @@ export function Sidebar({
             key={item.href}
             href={item.href}
             className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150',
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm min-h-[36px] transition-colors duration-150',
               isActive(item.href)
                 ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
                 : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
@@ -239,7 +239,7 @@ export function Sidebar({
           {getWorkspaceNavSections(currentWorkspace.id).map((section) => (
             <div key={section.title} className="mb-4">
               {!collapsed && (
-                <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
+                <div className="mb-1 px-3 text-xs uppercase tracking-wider text-sidebar-foreground/70">
                   {section.title}
                 </div>
               )}
@@ -248,7 +248,7 @@ export function Sidebar({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150',
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm min-h-[36px] transition-colors duration-150',
                     isActive(item.href)
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
