@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, FileSpreadsheet, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
 import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, rejectMatchSuggestion, MatchSuggestion } from './actions'
@@ -32,11 +33,62 @@ export function ReconciliationPanels({
   const [isCreatingManualMatch, setIsCreatingManualMatch] = useState(false)
   const [rejectedSuggestionIds, setRejectedSuggestionIds] = useState<Set<string>>(new Set())
 
+  // Bulk selection state
+  const [checkedBankTxnIds, setCheckedBankTxnIds] = useState<Set<string>>(new Set())
+  const [checkedQboTxnIds, setCheckedQboTxnIds] = useState<Set<string>>(new Set())
+
   // Get suggestion for a specific QBO transaction (excluding rejected ones)
   const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
     if (rejectedSuggestionIds.has(qboTxnId)) return undefined
     return matchSuggestions.find(s => s.qboTxnId === qboTxnId)
   }
+
+  // Bulk selection handlers
+  const handleBankTxnCheckedChange = (txnId: string, checked: boolean) => {
+    setCheckedBankTxnIds(prev => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(txnId)
+      } else {
+        next.delete(txnId)
+      }
+      return next
+    })
+  }
+
+  const handleQboTxnCheckedChange = (txnId: string, checked: boolean) => {
+    setCheckedQboTxnIds(prev => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(txnId)
+      } else {
+        next.delete(txnId)
+      }
+      return next
+    })
+  }
+
+  const handleSelectAllBank = (checked: boolean) => {
+    if (checked) {
+      setCheckedBankTxnIds(new Set(bankTransactions.map(t => t.id)))
+    } else {
+      setCheckedBankTxnIds(new Set())
+    }
+  }
+
+  const handleSelectAllQbo = (checked: boolean) => {
+    if (checked) {
+      setCheckedQboTxnIds(new Set(qboTransactions.map(t => t.id)))
+    } else {
+      setCheckedQboTxnIds(new Set())
+    }
+  }
+
+  // Computed selection states
+  const allBankSelected = bankTransactions.length > 0 && checkedBankTxnIds.size === bankTransactions.length
+  const someBankSelected = checkedBankTxnIds.size > 0 && checkedBankTxnIds.size < bankTransactions.length
+  const allQboSelected = qboTransactions.length > 0 && checkedQboTxnIds.size === qboTransactions.length
+  const someQboSelected = checkedQboTxnIds.size > 0 && checkedQboTxnIds.size < qboTransactions.length
 
   // Fetch match suggestions when a bank transaction is selected
   useEffect(() => {
@@ -237,6 +289,12 @@ export function ReconciliationPanels({
         <CardHeader className="flex-shrink-0 border-b py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <Checkbox
+                checked={allBankSelected}
+                onCheckedChange={handleSelectAllBank}
+                aria-label="Select all bank transactions"
+                {...(someBankSelected ? { 'data-state': 'indeterminate' } : {})}
+              />
               <Building2 className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-base">Bank Transactions</CardTitle>
             </div>
@@ -244,6 +302,11 @@ export function ReconciliationPanels({
               {bankTransactions.length} transactions
             </span>
           </div>
+          {checkedBankTxnIds.size > 0 && (
+            <div className="text-sm text-muted-foreground mt-1">
+              {checkedBankTxnIds.size} selected
+            </div>
+          )}
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-0">
           {bankTransactions.length === 0 ? (
@@ -257,6 +320,8 @@ export function ReconciliationPanels({
                   key={txn.id}
                   transaction={txn}
                   isSelected={selectedBankTxnId === txn.id}
+                  isChecked={checkedBankTxnIds.has(txn.id)}
+                  onCheckedChange={(checked) => handleBankTxnCheckedChange(txn.id, checked)}
                   onClick={() => handleBankTxnClick(txn.id)}
                 />
               ))}
@@ -270,6 +335,12 @@ export function ReconciliationPanels({
         <CardHeader className="flex-shrink-0 border-b py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <Checkbox
+                checked={allQboSelected}
+                onCheckedChange={handleSelectAllQbo}
+                aria-label="Select all QuickBooks transactions"
+                {...(someQboSelected ? { 'data-state': 'indeterminate' } : {})}
+              />
               <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-base">QuickBooks Transactions</CardTitle>
             </div>
@@ -280,6 +351,11 @@ export function ReconciliationPanels({
               )}
             </span>
           </div>
+          {checkedQboTxnIds.size > 0 && (
+            <div className="text-sm text-muted-foreground mt-1">
+              {checkedQboTxnIds.size} selected
+            </div>
+          )}
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-0">
           {qboTransactions.length === 0 ? (
@@ -299,6 +375,8 @@ export function ReconciliationPanels({
                     matchSuggestion={suggestion}
                     isSuggestionHighlighted={isHighlighted}
                     isManualSelected={isManualSelected}
+                    isChecked={checkedQboTxnIds.has(txn.id)}
+                    onCheckedChange={(checked) => handleQboTxnCheckedChange(txn.id, checked)}
                     onClick={suggestion ? () => handleSuggestionClick(txn.id) : undefined}
                     onShiftClick={selectedBankTxnId ? (e) => handleQboTxnClick(txn.id, e) : undefined}
                     onApproveClick={isHighlighted && !isApproving ? handleApproveMatch : undefined}

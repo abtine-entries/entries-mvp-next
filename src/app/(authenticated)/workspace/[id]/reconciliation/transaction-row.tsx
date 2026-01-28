@@ -2,6 +2,7 @@ import { Transaction } from '@/generated/prisma/client'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Check, X } from 'lucide-react'
 import type { MatchSuggestion } from './actions'
 
@@ -10,6 +11,8 @@ interface TransactionRowProps {
   isSelected?: boolean
   isManualSelected?: boolean
   isSuggestionHighlighted?: boolean
+  isChecked?: boolean
+  onCheckedChange?: (checked: boolean) => void
   onClick?: () => void
   onShiftClick?: (e: React.MouseEvent) => void
   onApproveClick?: () => void
@@ -69,6 +72,8 @@ export function TransactionRow({
   isSelected = false,
   isManualSelected = false,
   isSuggestionHighlighted = false,
+  isChecked = false,
+  onCheckedChange,
   onClick,
   onShiftClick,
   onApproveClick,
@@ -98,6 +103,10 @@ export function TransactionRow({
     }
   }
 
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+  }
+
   return (
     <div
       className={cn(
@@ -122,6 +131,14 @@ export function TransactionRow({
       title={hasSuggestion ? matchSuggestion.reasoning : undefined}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
+        {onCheckedChange && (
+          <div onClick={handleCheckboxClick}>
+            <Checkbox
+              checked={isChecked}
+              onCheckedChange={(checked) => onCheckedChange(checked === true)}
+            />
+          </div>
+        )}
         <span className="text-sm text-muted-foreground w-12 flex-shrink-0">
           {formatDate(transaction.date)}
         </span>
