@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { Activity, Building2, FileText, MessageSquare, History } from 'lucide-react'
+import { Activity, Building2, MessageSquare, History } from 'lucide-react'
+import { PropertiesSection } from './properties-section'
 
 interface EventPageProps {
   params: Promise<{ id: string; eventId: string }>
@@ -17,12 +18,21 @@ export default async function EventPage({ params }: EventPageProps) {
     where: { id: eventId },
     include: {
       workspace: { select: { id: true, name: true } },
+      properties: {
+        select: { id: true, definitionId: true, value: true },
+      },
     },
   })
 
   if (!event || event.workspaceId !== workspaceId) {
     notFound()
   }
+
+  const propertyDefinitions = await prisma.eventPropertyDefinition.findMany({
+    where: { workspaceId },
+    select: { id: true, name: true, type: true, options: true, position: true },
+    orderBy: { position: 'asc' },
+  })
 
   return (
     <div className="flex flex-col h-full">
@@ -43,14 +53,12 @@ export default async function EventPage({ params }: EventPageProps) {
           </div>
 
           {/* Properties Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="h-4 w-4" />
-                Properties
-              </CardTitle>
-            </CardHeader>
-          </Card>
+          <PropertiesSection
+            workspaceId={workspaceId}
+            eventId={eventId}
+            definitions={propertyDefinitions}
+            properties={event.properties}
+          />
 
           {/* Notes Section */}
           <Card>
