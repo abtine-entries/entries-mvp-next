@@ -169,3 +169,194 @@ export async function addEventNote(
     return { success: false, error: 'Failed to add note' }
   }
 }
+
+// --- Property Definition CRUD ---
+
+export interface PropertyDefinitionResult {
+  success: boolean
+  error?: string
+  definition?: {
+    id: string
+    name: string
+    type: string
+    options: string | null
+    position: number
+  }
+}
+
+export async function createPropertyDefinition(
+  workspaceId: string,
+  name: string,
+  type: string,
+  options: string | null
+): Promise<PropertyDefinitionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      return { success: false, error: 'Name is required' }
+    }
+
+    // Get next position
+    const maxPosition = await prisma.eventPropertyDefinition.findFirst({
+      where: { workspaceId },
+      orderBy: { position: 'desc' },
+      select: { position: true },
+    })
+
+    const definition = await prisma.eventPropertyDefinition.create({
+      data: {
+        workspaceId,
+        name: trimmedName,
+        type,
+        options,
+        position: (maxPosition?.position ?? -1) + 1,
+      },
+    })
+
+    revalidatePath(`/workspace/${workspaceId}`)
+
+    return {
+      success: true,
+      definition: {
+        id: definition.id,
+        name: definition.name,
+        type: definition.type,
+        options: definition.options,
+        position: definition.position,
+      },
+    }
+  } catch (error) {
+    console.error('Failed to create property definition:', error)
+    return { success: false, error: 'Failed to create property definition' }
+  }
+}
+
+export async function updatePropertyDefinition(
+  workspaceId: string,
+  definitionId: string,
+  name: string,
+  type: string,
+  options: string | null
+): Promise<PropertyDefinitionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const existing = await prisma.eventPropertyDefinition.findFirst({
+      where: { id: definitionId, workspaceId },
+    })
+    if (!existing) {
+      return { success: false, error: 'Property definition not found' }
+    }
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      return { success: false, error: 'Name is required' }
+    }
+
+    const definition = await prisma.eventPropertyDefinition.update({
+      where: { id: definitionId },
+      data: { name: trimmedName, type, options },
+    })
+
+    revalidatePath(`/workspace/${workspaceId}`)
+
+    return {
+      success: true,
+      definition: {
+        id: definition.id,
+        name: definition.name,
+        type: definition.type,
+        options: definition.options,
+        position: definition.position,
+      },
+    }
+  } catch (error) {
+    console.error('Failed to update property definition:', error)
+    return { success: false, error: 'Failed to update property definition' }
+  }
+}
+
+export async function deletePropertyDefinition(
+  workspaceId: string,
+  definitionId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const existing = await prisma.eventPropertyDefinition.findFirst({
+      where: { id: definitionId, workspaceId },
+    })
+    if (!existing) {
+      return { success: false, error: 'Property definition not found' }
+    }
+
+    // Delete all property values for this definition, then the definition
+    await prisma.$transaction([
+      prisma.eventProperty.deleteMany({
+        where: { definitionId },
+      }),
+      prisma.eventPropertyDefinition.delete({
+        where: { id: definitionId },
+      }),
+    ])
+
+    revalidatePath(`/workspace/${workspaceId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to delete property definition:', error)
+    return { success: false, error: 'Failed to delete property definition' }
+  }
+}
+
+export async function reorderPropertyDefinitions(
+  workspaceId: string,
+  orderedIds: string[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // Verify all definitions belong to workspace
+    const definitions = await prisma.eventPropertyDefinition.findMany({
+      where: { workspaceId },
+      select: { id: true },
+    })
+    const validIds = new Set(definitions.map((d) => d.id))
+    for (const id of orderedIds) {
+      if (!validIds.has(id)) {
+        return { success: false, error: 'Invalid definition id' }
+      }
+    }
+
+    // Update positions in a transaction
+    await prisma.$transaction(
+      orderedIds.map((id, index) =>
+        prisma.eventPropertyDefinition.update({
+          where: { id },
+          data: { position: index },
+        })
+      )
+    )
+
+    revalidatePath(`/workspace/${workspaceId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to reorder property definitions:', error)
+    return { success: false, error: 'Failed to reorder property definitions' }
+  }
+}

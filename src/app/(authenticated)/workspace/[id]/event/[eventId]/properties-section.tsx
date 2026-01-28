@@ -11,8 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { FileText } from 'lucide-react'
+import { FileText, Settings } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { updateEventProperty } from './actions'
+import { PropertySchemaModal } from './property-schema-modal'
 
 interface PropertyDefinition {
   id: string
@@ -48,17 +50,33 @@ export function PropertiesSection({
     }
     return map
   })
+  const [schemaModalOpen, setSchemaModalOpen] = useState(false)
 
   const sortedDefinitions = [...definitions].sort((a, b) => a.position - b.position)
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <FileText className="h-4 w-4" />
-          Properties
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4" />
+            Properties
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSchemaModalOpen(true)}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
+      <PropertySchemaModal
+        open={schemaModalOpen}
+        onOpenChange={setSchemaModalOpen}
+        workspaceId={workspaceId}
+        definitions={definitions}
+      />
       <CardContent>
         {sortedDefinitions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No properties defined.</p>
