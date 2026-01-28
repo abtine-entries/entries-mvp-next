@@ -24,7 +24,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { ExternalLink, ArrowRight, Sparkles, Check, ChevronsUpDown } from 'lucide-react'
+import { ExternalLink, ArrowRight, Sparkles, Check, ChevronsUpDown, History } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   getTransactionDetails,
@@ -32,7 +32,9 @@ import {
   getWorkspaceCategories,
   getAICategorySuggestion,
   updateTransactionCategory,
+  getTransactionAuditLogs,
   CategoryInfo,
+  AuditLogEntry,
 } from './actions'
 
 interface TransactionDetailModalProps {
@@ -99,6 +101,54 @@ function getConfidenceLabel(confidence: number): string {
   return 'Low'
 }
 
+function formatActionLabel(action: string): string {
+  const actionLabels: Record<string, string> = {
+    category_updated: 'Category Changed',
+    status_updated: 'Status Changed',
+    matched: 'Transaction Matched',
+    unmatched: 'Match Removed',
+    created: 'Created',
+    updated: 'Updated',
+  }
+  return actionLabels[action] || action.replace(/_/g, ' ')
+}
+
+function formatAuditLogValues(
+  action: string,
+  oldValueJson: string | null,
+  newValueJson: string | null
+): string {
+  try {
+    const oldValue = oldValueJson ? JSON.parse(oldValueJson) : null
+    const newValue = newValueJson ? JSON.parse(newValueJson) : null
+
+    if (action === 'category_updated') {
+      const oldCat = oldValue?.categoryName || 'None'
+      const newCat = newValue?.categoryName || 'None'
+      return `${oldCat} → ${newCat}`
+    }
+
+    if (action === 'status_updated') {
+      const oldStatus = oldValue?.status || 'unknown'
+      const newStatus = newValue?.status || 'unknown'
+      return `${oldStatus} → ${newStatus}`
+    }
+
+    // Generic fallback for other actions
+    if (oldValue && newValue) {
+      return 'Values changed'
+    } else if (newValue) {
+      return 'Value set'
+    } else if (oldValue) {
+      return 'Value cleared'
+    }
+
+    return ''
+  } catch {
+    return ''
+  }
+}
+
 export function TransactionDetailModal({
   transactionId,
   workspaceId,
@@ -121,6 +171,10 @@ export function TransactionDetailModal({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [isUpdatingCategory, setIsUpdatingCategory] = useState(false)
 
+  // Audit log state
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
   // Fetch transaction details
   useEffect(() => {
     if (!transactionId) {
@@ -128,6 +182,7 @@ export function TransactionDetailModal({
       setError(null)
       setAiSuggestion(null)
       setSelectedCategoryId(null)
+      setAuditLogs([])
       return
     }
 
@@ -154,7 +209,7 @@ export function TransactionDetailModal({
       })
   }, [transactionId])
 
-  // Fetch categories and AI suggestion when transaction is loaded
+  // Fetch categories, AI suggestion, and audit logs when transaction is loaded
   useEffect(() => {
     if (!transactionId || !workspaceId) return
 
@@ -171,6 +226,18 @@ export function TransactionDetailModal({
         setAiSuggestion(result.suggestion)
       }
     })
+
+    // Fetch audit logs (history)
+    setIsLoadingHistory(true)
+    getTransactionAuditLogs(transactionId, workspaceId)
+      .then((result) => {
+        if (result.auditLogs) {
+          setAuditLogs(result.auditLogs)
+        }
+      })
+      .finally(() => {
+        setIsLoadingHistory(false)
+      })
   }, [transactionId, workspaceId])
 
   const handleViewMatchedTransaction = (matchedTxnId: string) => {
@@ -214,6 +281,15 @@ export function TransactionDetailModal({
                   createdAt: new Date(),
                 }
               : null,
+          })
+        }
+
+        // Refresh audit logs to show the new entry
+        if (transactionId) {
+          getTransactionAuditLogs(transactionId, workspaceId).then((logResult) => {
+            if (logResult.auditLogs) {
+              setAuditLogs(logResult.auditLogs)
+            }
           })
         }
 
@@ -508,6 +584,56 @@ export function TransactionDetailModal({
                 </div>
               </div>
             )}
+
+            {/* History / Audit Log */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <History className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                  History
+                </span>
+              </div>
+
+              {isLoadingHistory && (
+                <div className="text-sm text-muted-foreground text-center py-2">
+                  Loading history...
+                </div>
+              )}
+
+              {!isLoadingHistory && auditLogs.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-2">
+                  No history available
+                </div>
+              )}
+
+              {!isLoadingHistory && auditLogs.length > 0 && (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {auditLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="text-xs bg-muted/50 rounded-md p-2 space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-foreground capitalize">
+                          {formatActionLabel(log.action)}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {formatDateTime(log.createdAt)}
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        by {log.user.name || log.user.email}
+                      </div>
+                      {(log.oldValue || log.newValue) && (
+                        <div className="text-muted-foreground pt-1">
+                          {formatAuditLogValues(log.action, log.oldValue, log.newValue)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Metadata */}
             <div className="border-t pt-4">

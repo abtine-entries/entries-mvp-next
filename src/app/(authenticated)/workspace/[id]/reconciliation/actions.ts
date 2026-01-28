@@ -721,6 +721,26 @@ export interface CategoryInfo {
   type: string
 }
 
+// Type for audit log entries
+export interface AuditLogEntry {
+  id: string
+  action: string
+  entityType: string
+  oldValue: string | null
+  newValue: string | null
+  createdAt: Date
+  user: {
+    name: string | null
+    email: string
+  }
+}
+
+// Result type for getting audit logs
+export interface GetAuditLogsResult {
+  auditLogs?: AuditLogEntry[]
+  error?: string
+}
+
 // Result type for category operations
 export interface UpdateCategoryResult {
   success: boolean
@@ -891,5 +911,41 @@ export async function updateTransactionCategory(
   } catch (error) {
     console.error('Failed to update transaction category:', error)
     return { success: false, error: 'Failed to update category. Please try again.' }
+  }
+}
+
+/**
+ * Get audit log entries for a transaction
+ * Returns all audit log entries where entityType is 'Transaction' and entityId matches
+ * Sorted by createdAt descending (newest first)
+ */
+export async function getTransactionAuditLogs(
+  transactionId: string,
+  workspaceId: string
+): Promise<GetAuditLogsResult> {
+  try {
+    const auditLogs = await prisma.auditLog.findMany({
+      where: {
+        workspaceId,
+        entityType: 'Transaction',
+        entityId: transactionId,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    return { auditLogs }
+  } catch (error) {
+    console.error('Failed to fetch transaction audit logs:', error)
+    return { error: 'Failed to load transaction history' }
   }
 }
