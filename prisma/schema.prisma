@@ -19,6 +19,7 @@ model User {
   updatedAt    DateTime    @updatedAt
 
   workspaces   Workspace[]
+  auditLogs    AuditLog[]
 }
 
 model Workspace {
@@ -36,6 +37,7 @@ model Workspace {
   matches      Match[]
   rules        Rule[]
   anomalies    Anomaly[]
+  auditLogs    AuditLog[]
 }
 
 model Category {
@@ -121,4 +123,19 @@ model Anomaly {
 
   workspace          Workspace   @relation(fields: [workspaceId], references: [id])
   transaction        Transaction @relation(fields: [transactionId], references: [id])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  action      String
+  entityType  String
+  entityId    String
+  oldValue    String?   // JSON stored as string (SQLite doesn't have native JSON type)
+  newValue    String?   // JSON stored as string (SQLite doesn't have native JSON type)
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
 }
