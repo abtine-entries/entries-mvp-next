@@ -33,6 +33,7 @@ model Workspace {
   user         User          @relation(fields: [userId], references: [id])
   categories   Category[]
   transactions Transaction[]
+  matches      Match[]
 }
 
 model Category {
@@ -64,6 +65,25 @@ model Transaction {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  category    Category? @relation(fields: [categoryId], references: [id])
+  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+  category         Category? @relation(fields: [categoryId], references: [id])
+  bankMatches      Match[]   @relation("BankTransaction")
+  qboMatches       Match[]   @relation("QboTransaction")
+}
+
+model Match {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  bankTransactionId  String
+  qboTransactionId   String
+  matchType          String   // exact, suggested, partial, manual
+  confidence         Float
+  reasoning          String?
+  createdAt          DateTime @default(now())
+
+  workspace          Workspace   @relation(fields: [workspaceId], references: [id])
+  bankTransaction    Transaction @relation("BankTransaction", fields: [bankTransactionId], references: [id])
+  qboTransaction     Transaction @relation("QboTransaction", fields: [qboTransactionId], references: [id])
+
+  @@unique([bankTransactionId, qboTransactionId])
 }
