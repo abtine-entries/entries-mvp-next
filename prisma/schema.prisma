@@ -30,8 +30,9 @@ model Workspace {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  user       User      @relation(fields: [userId], references: [id])
-  categories Category[]
+  user         User          @relation(fields: [userId], references: [id])
+  categories   Category[]
+  transactions Transaction[]
 }
 
 model Category {
@@ -42,7 +43,27 @@ model Category {
   parentId    String?
   createdAt   DateTime   @default(now())
 
-  workspace   Workspace  @relation(fields: [workspaceId], references: [id])
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryHierarchy")
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]    @relation("CategoryHierarchy")
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  workspaceId String
+  source      String    // bank, qbo
+  externalId  String?
+  date        DateTime
+  description String
+  amount      Decimal
+  categoryId  String?
+  status      String    @default("unmatched") // unmatched, matched, pending
+  confidence  Float?
+  aiReasoning String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
 }
