@@ -35,6 +35,7 @@ model Workspace {
   transactions Transaction[]
   matches      Match[]
   rules        Rule[]
+  anomalies    Anomaly[]
 }
 
 model Category {
@@ -71,6 +72,7 @@ model Transaction {
   category         Category? @relation(fields: [categoryId], references: [id])
   bankMatches      Match[]   @relation("BankTransaction")
   qboMatches       Match[]   @relation("QboTransaction")
+  anomalies        Anomaly[]
 }
 
 model Match {
@@ -103,4 +105,20 @@ model Rule {
 
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
   category        Category  @relation(fields: [categoryId], references: [id])
+}
+
+model Anomaly {
+  id                 String    @id @default(cuid())
+  workspaceId        String
+  transactionId      String
+  type               String    // timing, duplicate, amount, vendor, unusual
+  severity           String    // high, medium, low
+  description        String
+  suggestedResolution String?
+  status             String    @default("open") // open, resolved, dismissed
+  resolvedAt         DateTime?
+  createdAt          DateTime  @default(now())
+
+  workspace          Workspace   @relation(fields: [workspaceId], references: [id])
+  transaction        Transaction @relation(fields: [transactionId], references: [id])
 }
