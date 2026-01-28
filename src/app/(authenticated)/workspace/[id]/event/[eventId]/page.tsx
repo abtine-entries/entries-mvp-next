@@ -4,8 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { Activity, Building2, MessageSquare, History } from 'lucide-react'
+import { Activity, Building2, History } from 'lucide-react'
 import { PropertiesSection } from './properties-section'
+import { NotesSection } from './notes-section'
 
 interface EventPageProps {
   params: Promise<{ id: string; eventId: string }>
@@ -20,6 +21,17 @@ export default async function EventPage({ params }: EventPageProps) {
       workspace: { select: { id: true, name: true } },
       properties: {
         select: { id: true, definitionId: true, value: true },
+      },
+      notes: {
+        select: {
+          id: true,
+          content: true,
+          authorType: true,
+          authorId: true,
+          createdAt: true,
+          author: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'asc' },
       },
     },
   })
@@ -61,14 +73,17 @@ export default async function EventPage({ params }: EventPageProps) {
           />
 
           {/* Notes Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-4 w-4" />
-                Notes
-              </CardTitle>
-            </CardHeader>
-          </Card>
+          <NotesSection
+            workspaceId={workspaceId}
+            eventId={eventId}
+            initialNotes={event.notes.map((note) => ({
+              id: note.id,
+              content: note.content,
+              authorType: note.authorType,
+              authorName: note.authorType === 'ai' ? 'Entries AI' : (note.author?.name ?? 'Unknown'),
+              createdAt: note.createdAt.toISOString(),
+            }))}
+          />
 
           {/* Audit Trail Section */}
           <Card>
