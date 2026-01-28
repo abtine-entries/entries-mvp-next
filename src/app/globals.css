@@ -5,9 +5,14 @@
 
 @theme {
   /* Font Families */
-  --font-family-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-heading: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-body: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* Tailwind font utility classes */
+  --font-heading: var(--font-family-heading);
+  --font-body: var(--font-family-body);
+  --font-mono: var(--font-family-mono);
 
   /* Font Sizes */
   --font-size-h1: 2.5rem;
