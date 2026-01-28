@@ -30,6 +30,13 @@ export interface MatchingTransactionsResult {
   error?: string
 }
 
+// Result type for toggling rule status
+export interface ToggleRuleResult {
+  success: boolean
+  isActive?: boolean
+  error?: string
+}
+
 /**
  * Get all categories for a workspace
  */
@@ -211,5 +218,69 @@ export async function createRule(
   } catch (error) {
     console.error('Failed to create rule:', error)
     return { success: false, error: 'Failed to create rule. Please try again.' }
+  }
+}
+
+/**
+ * Toggle a rule's isActive status
+ */
+export async function toggleRuleStatus(
+  ruleId: string,
+  workspaceId: string
+): Promise<ToggleRuleResult> {
+  try {
+    // Get the current user session
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // Get the current rule state
+    const rule = await prisma.rule.findFirst({
+      where: { id: ruleId, workspaceId },
+      include: { category: true },
+    })
+
+    if (!rule) {
+      return { success: false, error: 'Rule not found' }
+    }
+
+    // Toggle the isActive status
+    const newIsActive = !rule.isActive
+
+    // Update the rule
+    await prisma.rule.update({
+      where: { id: ruleId },
+      data: { isActive: newIsActive },
+    })
+
+    // Create audit log entry
+    await prisma.auditLog.create({
+      data: {
+        workspaceId,
+        userId: session.user.id,
+        action: newIsActive ? 'rule_enabled' : 'rule_disabled',
+        entityType: 'Rule',
+        entityId: ruleId,
+        oldValue: JSON.stringify({
+          isActive: rule.isActive,
+          ruleText: rule.ruleText,
+          categoryName: rule.category.name,
+        }),
+        newValue: JSON.stringify({
+          isActive: newIsActive,
+          ruleText: rule.ruleText,
+          categoryName: rule.category.name,
+        }),
+      },
+    })
+
+    // Revalidate the rules page
+    revalidatePath(`/workspace/${workspaceId}/rules`)
+
+    return { success: true, isActive: newIsActive }
+  } catch (error) {
+    console.error('Failed to toggle rule status:', error)
+    return { success: false, error: 'Failed to update rule. Please try again.' }
   }
 }
