@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -11,16 +10,17 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { FileText, BookOpen } from 'lucide-react'
+import { CreateRuleModal } from './create-rule-modal'
 
 interface RulesPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function RulesPage({ params }: RulesPageProps) {
-  const { id } = await params
+  const { id: workspaceId } = await params
 
   const rules = await prisma.rule.findMany({
-    where: { workspaceId: id },
+    where: { workspaceId },
     include: { category: true },
     orderBy: { createdAt: 'desc' },
   })
@@ -29,6 +29,7 @@ export default async function RulesPage({ params }: RulesPageProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Categorization Rules</h2>
+        <CreateRuleModal workspaceId={workspaceId} />
       </div>
 
       <Card>
