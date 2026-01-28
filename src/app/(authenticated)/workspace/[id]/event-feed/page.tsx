@@ -1,29 +1,22 @@
 import Image from 'next/image'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Activity,
   Building2,
   Sparkles,
   Plus,
-  Filter,
 } from 'lucide-react'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
 import type { ConnectorType } from '@/components/ui/connector-logo-config'
+import { EventFeedDataTable } from './event-feed-data-table'
 
 interface EventFeedPageProps {
   params: Promise<{ id: string }>
-}
-
-// Map event source IDs to ConnectorType for logo.dev logos
-const sourceConnectorMap: Record<string, ConnectorType> = {
-  qbo: 'quickbooks',
-  plaid: 'plaid',
 }
 
 // Mock data sources
@@ -42,46 +35,7 @@ function mapTransactionSource(source: string): { source: string; sourceLabel: st
 
 // Map entity type to feed source identifier for non-transaction entities
 function mapEntityTypeSource(_entityType: string): { source: string; sourceLabel: string } {
-  // Matches, anomalies, rules, AI actions are all Entries-originated
   return { source: 'entries', sourceLabel: 'Entries' }
-}
-
-function formatEventTime(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-}
-
-function SourceBadge({ source, label }: { source: string; label?: string }) {
-  const connectorType = sourceConnectorMap[source]
-
-  if (source === 'entries') {
-    return (
-      <div className="flex items-center gap-1.5 text-sm text-primary">
-        <Sparkles className="h-4 w-4" />
-        <span>Entries</span>
-      </div>
-    )
-  }
-
-  if (connectorType) {
-    return (
-      <div className="flex items-center gap-1.5 text-sm">
-        <ConnectorLogo connector={connectorType} size="sm" />
-        <span className="text-muted-foreground">{label}</span>
-      </div>
-    )
-  }
-
-  return (
-    <Badge variant="outline" className="text-xs font-normal">
-      {label}
-    </Badge>
-  )
 }
 
 export default async function EventFeedPage({ params }: EventFeedPageProps) {
@@ -152,7 +106,7 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="flex gap-6 max-w-6xl">
+        <div className="flex gap-6">
           {/* Left sidebar with filters */}
           <div className="w-64 shrink-0 space-y-6">
             {/* Data Sources */}
@@ -193,11 +147,7 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
                 </h3>
                 <div className="space-y-2">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="rounded border-border bg-background"
-                    />
+                    <Checkbox defaultChecked />
                     <span className="text-sm">All Sources</span>
                   </label>
                   {dataSources.map((source) => (
@@ -205,10 +155,7 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
                       key={source.id}
                       className="flex items-center gap-3 cursor-pointer"
                     >
-                      <input
-                        type="checkbox"
-                        className="rounded border-border bg-background"
-                      />
+                      <Checkbox />
                       <span className="text-sm text-muted-foreground">
                         {source.name}
                       </span>
@@ -235,45 +182,7 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
           <div className="flex-1">
             <Card className="bg-card border-border">
               <CardContent className="p-0">
-                {/* Table header */}
-                <div className="grid grid-cols-[180px_100px_1fr] gap-4 px-4 py-3 border-b border-border text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    Occurred
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    Source
-                  </div>
-                  <div>Description</div>
-                </div>
-
-                {/* Event rows */}
-                <div className="divide-y divide-border">
-                  {feedItems.map((event) => (
-                    <Link
-                      key={event.id}
-                      href={`/workspace/${workspace.id}/event/${event.id}`}
-                      className="grid grid-cols-[180px_100px_1fr] gap-4 px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
-                    >
-                      <div className="text-sm text-muted-foreground">
-                        {formatEventTime(event.occurredAt)}
-                      </div>
-                      <div>
-                        <SourceBadge
-                          source={event.source}
-                          label={event.sourceLabel}
-                        />
-                      </div>
-                      <div className="text-sm">{event.description}</div>
-                    </Link>
-                  ))}
-                  {feedItems.length === 0 && (
-                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                      No events yet. Events will appear here as transactions, matches, and other activities occur.
-                    </div>
-                  )}
-                </div>
+                <EventFeedDataTable data={feedItems} workspaceId={workspace.id} />
               </CardContent>
             </Card>
           </div>

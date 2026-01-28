@@ -15,7 +15,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createWorkspace } from './actions'
 
-export function CreateWorkspaceModal() {
+interface CreateWorkspaceModalProps {
+  trigger?: React.ReactNode
+}
+
+export function CreateWorkspaceModal({ trigger }: CreateWorkspaceModalProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
@@ -56,7 +60,7 @@ export function CreateWorkspaceModal() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>Add Client</Button>
+        {trigger || <Button>Add Client</Button>}
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>

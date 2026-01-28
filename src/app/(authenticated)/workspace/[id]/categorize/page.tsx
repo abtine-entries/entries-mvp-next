@@ -1,6 +1,8 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
+import { Building2, Tags } from 'lucide-react'
 import { CategorizationTable } from './categorization-table'
 
 interface CategorizePageProps {
@@ -123,13 +125,13 @@ export default async function CategorizePage({ params }: CategorizePageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/' },
-          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed` },
-          { label: 'Categorize' },
+          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
+          { label: 'Categorize', icon: <Tags className="h-4 w-4" /> },
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="max-w-5xl space-y-6">
+        <div className="space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4">
             <div className="bg-card border border-border rounded-lg p-4">

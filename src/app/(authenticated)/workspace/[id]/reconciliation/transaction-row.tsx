@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Check, X, Info } from 'lucide-react'
 import type { MatchSuggestion } from './actions'
 
@@ -135,7 +136,6 @@ export function TransactionRow({
                 : (onClick || onShiftClick) ? 'hover:bg-muted/50' : ''
       )}
       onClick={handleClick}
-      title={hasSuggestion ? matchSuggestion.reasoning : undefined}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
         {onCheckedChange && (
@@ -183,15 +183,19 @@ export function TransactionRow({
           {formatAmount(transaction.amount)}
         </span>
         {onDetailClick && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 p-0"
-            onClick={handleDetailClick}
-            title="View details"
-          >
-            <Info className="h-4 w-4 text-muted-foreground" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={handleDetailClick}
+              >
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>View details</TooltipContent>
+          </Tooltip>
         )}
         {isSuggestionHighlighted && (
           <div className="flex items-center gap-1">

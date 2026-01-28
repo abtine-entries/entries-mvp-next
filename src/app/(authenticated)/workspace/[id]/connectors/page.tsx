@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
@@ -5,7 +6,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
+  Building2,
   Check,
+  Plug,
   Plus,
   ExternalLink,
   RefreshCw,
@@ -130,13 +133,13 @@ export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/' },
-          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed` },
-          { label: 'Data Connectors' },
+          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
+          { label: 'Data Connectors', icon: <Plug className="h-4 w-4" /> },
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="max-w-4xl space-y-8">
+        <div className="space-y-8">
           {/* Connected Apps Section */}
           <section>
             <h2 className="text-lg font-semibold mb-4">Connected Apps</h2>

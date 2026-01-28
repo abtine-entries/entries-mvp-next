@@ -1,17 +1,11 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { FileText, BookOpen } from 'lucide-react'
+import { FileText, BookOpen, Building2 } from 'lucide-react'
 import { CreateRuleModal } from './create-rule-modal'
-import { RuleRow } from './rule-row'
+import { RulesDataTable } from './rules-data-table'
 
 interface RulesPageProps {
   params: Promise<{ id: string }>
@@ -39,14 +33,14 @@ export default async function RulesPage({ params }: RulesPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/' },
-          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed` },
-          { label: 'Rules' },
+          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
+          { label: 'Rules', icon: <BookOpen className="h-4 w-4" /> },
         ]}
         actions={<CreateRuleModal workspaceId={workspaceId} />}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="max-w-4xl">
+        <div>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -65,25 +59,7 @@ export default async function RulesPage({ params }: RulesPageProps) {
                   </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[40%]">Rule</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Match Count</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rules.map((rule) => (
-                      <RuleRow
-                        key={rule.id}
-                        rule={rule}
-                        workspaceId={workspaceId}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
+                <RulesDataTable rules={rules} workspaceId={workspaceId} />
               )}
             </CardContent>
           </Card>

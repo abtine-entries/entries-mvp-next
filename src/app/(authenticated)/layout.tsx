@@ -1,6 +1,16 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
-import { Header } from './header'
+import { prisma } from '@/lib/prisma'
+import { AppShell } from '@/components/layout'
+
+async function getWorkspacesForSidebar(userId: string) {
+  const workspaces = await prisma.workspace.findMany({
+    where: { userId },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  })
+  return workspaces
+}
 
 export default async function AuthenticatedLayout({
   children,
@@ -13,10 +23,11 @@ export default async function AuthenticatedLayout({
     redirect('/login')
   }
 
+  const workspaces = await getWorkspacesForSidebar(session.user.id!)
+
   return (
-    <div className="min-h-screen bg-background">
-      <Header userEmail={session.user.email ?? ''} />
-      <main className="container mx-auto px-4 py-6">{children}</main>
-    </div>
+    <AppShell workspaces={workspaces}>
+      {children}
+    </AppShell>
   )
 }

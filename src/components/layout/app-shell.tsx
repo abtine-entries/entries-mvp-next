@@ -2,6 +2,8 @@
 
 import { useState, createContext, useContext, useCallback } from 'react'
 import { Sidebar } from './sidebar'
+import { SearchModal } from './search-modal'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 interface Workspace {
   id: string
@@ -33,6 +35,7 @@ export function AppShell({
   workspaces,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => !prev)
@@ -40,16 +43,24 @@ export function AppShell({
 
   return (
     <AppShellContext.Provider value={{ collapsed, toggleCollapse }}>
-      <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar
-          workspaces={workspaces}
-          collapsed={collapsed}
-          onToggleCollapse={toggleCollapse}
-        />
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
-      </div>
+      <TooltipProvider>
+        <div className="flex h-screen overflow-hidden bg-background">
+          <Sidebar
+            workspaces={workspaces}
+            collapsed={collapsed}
+            onToggleCollapse={toggleCollapse}
+            onSearchClick={() => setSearchOpen(true)}
+          />
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+          <SearchModal
+            open={searchOpen}
+            onOpenChange={setSearchOpen}
+            workspaces={workspaces}
+          />
+        </div>
+      </TooltipProvider>
     </AppShellContext.Provider>
   )
 }

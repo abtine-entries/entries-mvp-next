@@ -40,6 +40,7 @@ interface SidebarProps {
   workspaces: Workspace[]
   collapsed?: boolean
   onToggleCollapse?: () => void
+  onSearchClick?: () => void
 }
 
 interface NavItem {
@@ -57,6 +58,7 @@ export function Sidebar({
   workspaces,
   collapsed = false,
   onToggleCollapse,
+  onSearchClick,
 }: SidebarProps) {
   const pathname = usePathname()
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false)
@@ -80,7 +82,6 @@ export function Sidebar({
   // Navigation sections based on the screenshot
   const topNavItems: NavItem[] = [
     { label: 'Home', href: '/', icon: Home },
-    { label: 'Search', href: '/search', icon: Search },
   ]
 
   const getWorkspaceNavSections = (workspaceId: string): NavSection[] => [
@@ -113,16 +114,17 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        'flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200',
+        'flex h-screen flex-col bg-sidebar transition-all duration-200',
         collapsed ? 'w-16' : 'w-60'
       )}
     >
-      {/* Logo */}
-      <div className={cn('flex flex-col gap-2 pt-3', collapsed ? 'px-2' : 'px-3')}>
+      {/* Top group: Logo + Home/Search + Workspace Switcher */}
+      <div className={cn('flex flex-col gap-1 pt-3 pb-6 px-3')}>
+        {/* Logo */}
         <Link
           href="/"
           className={cn(
-            'flex items-center gap-3 py-1.5 rounded-md min-h-[36px]',
+            'flex items-center gap-3 py-1.5 mb-4 rounded-md min-h-[36px]',
             collapsed ? 'justify-center px-2' : 'px-3'
           )}
         >
@@ -139,10 +141,8 @@ export function Sidebar({
             </span>
           )}
         </Link>
-      </div>
 
-      {/* Top nav items */}
-      <nav className="p-2">
+        {/* Home */}
         {topNavItems.map((item) => (
           <Link
             key={item.href}
@@ -158,10 +158,20 @@ export function Sidebar({
             {!collapsed && <span>{item.label}</span>}
           </Link>
         ))}
-      </nav>
 
-      {/* Workspace Switcher */}
-      <div className="px-2 py-2">
+        {/* Search */}
+        <button
+          onClick={onSearchClick}
+          className={cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm min-h-[36px] transition-colors duration-150 w-full text-left',
+            'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
+          )}
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Search</span>}
+        </button>
+
+        {/* Workspace Switcher */}
         <Popover open={workspaceSwitcherOpen} onOpenChange={setWorkspaceSwitcherOpen}>
           <PopoverTrigger asChild>
             <button
@@ -258,12 +268,12 @@ export function Sidebar({
       </div>
 
       {/* Workspace-specific navigation */}
-      {currentWorkspace && (
-        <nav className="flex-1 overflow-auto px-2 py-2">
+      {currentWorkspace ? (
+        <nav className="flex-1 overflow-auto px-3 pt-4 pb-2">
           {getWorkspaceNavSections(currentWorkspace.id).map((section) => (
-            <div key={section.title} className="mb-4">
+            <div key={section.title} className="mb-6">
               {!collapsed && (
-                <div className="mb-1 px-3 text-xs uppercase tracking-wider text-sidebar-foreground/70">
+                <div className="mb-1 px-3 text-xs tracking-wider text-sidebar-foreground/70">
                   {section.title}
                 </div>
               )}
@@ -285,10 +295,12 @@ export function Sidebar({
             </div>
           ))}
         </nav>
+      ) : (
+        <div className="flex-1" />
       )}
 
-      {/* Collapse button */}
-      <div className="border-t border-sidebar-border p-2">
+      {/* Collapse button — always pinned to bottom */}
+      <div className="px-3 py-2">
         <Button
           variant="ghost"
           className={cn(

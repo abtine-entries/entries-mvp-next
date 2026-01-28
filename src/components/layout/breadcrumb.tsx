@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 export interface BreadcrumbItem {
   label: string
   href?: string
+  icon?: React.ReactNode
 }
 
 interface BreadcrumbProps {
@@ -31,16 +32,19 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
             {item.href && !isLast ? (
               <Link
                 href={item.href}
-                className="text-muted-foreground transition-colors hover:text-foreground"
+                className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
               >
+                {item.icon}
                 {item.label}
               </Link>
             ) : (
               <span
                 className={cn(
+                  'flex items-center gap-1.5',
                   isLast ? 'text-foreground font-medium' : 'text-muted-foreground'
                 )}
               >
+                {item.icon}
                 {item.label}
               </span>
             )}

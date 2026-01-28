@@ -1,6 +1,8 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
+import { Building2, GitCompare } from 'lucide-react'
 import { ReconciliationPanels } from '../reconciliation/reconciliation-panels'
 
 interface ReconcilePageProps {
@@ -35,9 +37,9 @@ export default async function ReconcilePage({ params }: ReconcilePageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/' },
-          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed` },
-          { label: 'Reconcile' },
+          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
+          { label: 'Reconcile', icon: <GitCompare className="h-4 w-4" /> },
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
