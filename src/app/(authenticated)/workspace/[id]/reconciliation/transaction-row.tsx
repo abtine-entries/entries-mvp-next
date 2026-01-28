@@ -2,7 +2,7 @@ import { Transaction } from '@/generated/prisma/client'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Check } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import type { MatchSuggestion } from './actions'
 
 interface TransactionRowProps {
@@ -13,6 +13,7 @@ interface TransactionRowProps {
   onClick?: () => void
   onShiftClick?: (e: React.MouseEvent) => void
   onApproveClick?: () => void
+  onRejectClick?: () => void
   matchSuggestion?: MatchSuggestion
 }
 
@@ -71,6 +72,7 @@ export function TransactionRow({
   onClick,
   onShiftClick,
   onApproveClick,
+  onRejectClick,
   matchSuggestion,
 }: TransactionRowProps) {
   const amount = Number(transaction.amount)
@@ -81,6 +83,11 @@ export function TransactionRow({
   const handleApproveClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onApproveClick?.()
+  }
+
+  const handleRejectClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onRejectClick?.()
   }
 
   const handleClick = (e: React.MouseEvent) => {
@@ -152,14 +159,25 @@ export function TransactionRow({
           {formatAmount(transaction.amount)}
         </span>
         {isSuggestionHighlighted && (
-          <Button
-            size="sm"
-            className="h-7 px-2 gap-1 bg-green-600 hover:bg-green-700"
-            onClick={handleApproveClick}
-          >
-            <Check className="h-3.5 w-3.5" />
-            Approve
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 gap-1 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={handleRejectClick}
+            >
+              <X className="h-3.5 w-3.5" />
+              Reject
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 px-2 gap-1 bg-green-600 hover:bg-green-700"
+              onClick={handleApproveClick}
+            >
+              <Check className="h-3.5 w-3.5" />
+              Approve
+            </Button>
+          </div>
         )}
       </div>
     </div>

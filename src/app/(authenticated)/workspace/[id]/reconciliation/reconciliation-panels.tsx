@@ -7,7 +7,7 @@ import { Building2, FileSpreadsheet, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
-import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, MatchSuggestion } from './actions'
+import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, rejectMatchSuggestion, MatchSuggestion } from './actions'
 import { toast } from 'sonner'
 
 interface ReconciliationPanelsProps {
@@ -28,10 +28,13 @@ export function ReconciliationPanels({
   const [matchSuggestions, setMatchSuggestions] = useState<MatchSuggestion[]>([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
   const [isCreatingManualMatch, setIsCreatingManualMatch] = useState(false)
+  const [rejectedSuggestionIds, setRejectedSuggestionIds] = useState<Set<string>>(new Set())
 
-  // Get suggestion for a specific QBO transaction
+  // Get suggestion for a specific QBO transaction (excluding rejected ones)
   const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
+    if (rejectedSuggestionIds.has(qboTxnId)) return undefined
     return matchSuggestions.find(s => s.qboTxnId === qboTxnId)
   }
 
@@ -41,6 +44,7 @@ export function ReconciliationPanels({
       setMatchSuggestions([])
       setHighlightedSuggestionId(null)
       setSelectedQboTxnId(null)
+      setRejectedSuggestionIds(new Set())
       return
     }
 
@@ -49,12 +53,14 @@ export function ReconciliationPanels({
       setMatchSuggestions([])
       setHighlightedSuggestionId(null)
       setSelectedQboTxnId(null)
+      setRejectedSuggestionIds(new Set())
       return
     }
 
     setIsLoadingSuggestions(true)
     setHighlightedSuggestionId(null)
     setSelectedQboTxnId(null)
+    setRejectedSuggestionIds(new Set())
     getMatchSuggestionsForTransaction(selectedBankTxn, qboTransactions)
       .then(suggestions => {
         setMatchSuggestions(suggestions)
@@ -161,6 +167,40 @@ export function ReconciliationPanels({
     }
   }
 
+  const handleRejectSuggestion = async () => {
+    if (!selectedBankTxnId || !highlightedSuggestionId) return
+
+    const suggestion = matchSuggestions.find(s => s.qboTxnId === highlightedSuggestionId)
+    if (!suggestion) return
+
+    setIsRejecting(true)
+    try {
+      const result = await rejectMatchSuggestion(
+        workspaceId,
+        selectedBankTxnId,
+        highlightedSuggestionId,
+        suggestion.matchType,
+        suggestion.confidence,
+        suggestion.reasoning
+      )
+
+      if (result.success) {
+        toast.success('Match suggestion rejected')
+        // Add to rejected set to hide from current view
+        setRejectedSuggestionIds(prev => new Set([...prev, highlightedSuggestionId]))
+        // Clear the highlight
+        setHighlightedSuggestionId(null)
+      } else {
+        toast.error(result.error || 'Failed to reject suggestion')
+      }
+    } catch (error) {
+      console.error('Failed to reject suggestion:', error)
+      toast.error('Failed to reject suggestion. Please try again.')
+    } finally {
+      setIsRejecting(false)
+    }
+  }
+
   // Show manual match action bar when both bank and QBO transactions are selected
   const showManualMatchBar = selectedBankTxnId && selectedQboTxnId
 
@@ -262,6 +302,7 @@ export function ReconciliationPanels({
                     onClick={suggestion ? () => handleSuggestionClick(txn.id) : undefined}
                     onShiftClick={selectedBankTxnId ? (e) => handleQboTxnClick(txn.id, e) : undefined}
                     onApproveClick={isHighlighted && !isApproving ? handleApproveMatch : undefined}
+                    onRejectClick={isHighlighted && !isRejecting ? handleRejectSuggestion : undefined}
                   />
                 )
               })}

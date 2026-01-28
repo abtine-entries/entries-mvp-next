@@ -4,6 +4,7 @@ import { Transaction } from '@/generated/prisma/client'
 import type { MatchType } from '@/lib/services/mock-ai-matching'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { auth } from '@/lib/auth'
 
 export interface MatchSuggestion {
   qboTxnId: string
@@ -22,6 +23,11 @@ export interface CreateManualMatchResult {
   success: boolean
   error?: string
   matchId?: string
+}
+
+export interface RejectMatchResult {
+  success: boolean
+  error?: string
 }
 
 /**
@@ -164,6 +170,69 @@ export async function createManualMatch(
   } catch (error) {
     console.error('Failed to create manual match:', error)
     return { success: false, error: 'Failed to create manual match. Please try again.' }
+  }
+}
+
+/**
+ * Reject a match suggestion between a bank and QBO transaction
+ * Creates an AuditLog entry for the rejection
+ */
+export async function rejectMatchSuggestion(
+  workspaceId: string,
+  bankTransactionId: string,
+  qboTransactionId: string,
+  matchType: MatchType,
+  confidence: number,
+  reasoning: string
+): Promise<RejectMatchResult> {
+  try {
+    // Get the current user session
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // Verify both transactions exist and belong to this workspace
+    const [bankTxn, qboTxn] = await Promise.all([
+      prisma.transaction.findFirst({
+        where: { id: bankTransactionId, workspaceId },
+      }),
+      prisma.transaction.findFirst({
+        where: { id: qboTransactionId, workspaceId },
+      }),
+    ])
+
+    if (!bankTxn || !qboTxn) {
+      return { success: false, error: 'One or both transactions not found' }
+    }
+
+    // Create an audit log entry for the rejection
+    await prisma.auditLog.create({
+      data: {
+        workspaceId,
+        userId: session.user.id,
+        action: 'match_suggestion_rejected',
+        entityType: 'MatchSuggestion',
+        entityId: `${bankTransactionId}:${qboTransactionId}`,
+        oldValue: JSON.stringify({
+          bankTransactionId,
+          qboTransactionId,
+          matchType,
+          confidence,
+          reasoning,
+          bankDescription: bankTxn.description,
+          qboDescription: qboTxn.description,
+          bankAmount: Number(bankTxn.amount),
+          qboAmount: Number(qboTxn.amount),
+        }),
+        newValue: null,
+      },
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to reject match suggestion:', error)
+    return { success: false, error: 'Failed to reject match suggestion. Please try again.' }
   }
 }
 
