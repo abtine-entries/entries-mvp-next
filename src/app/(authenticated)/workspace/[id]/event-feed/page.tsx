@@ -1,128 +1,50 @@
+import Image from 'next/image'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
   Activity,
+  Building2,
   Sparkles,
   Plus,
   Filter,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ConnectorLogo } from '@/components/ui/connector-logo'
+import type { ConnectorType } from '@/components/ui/connector-logo-config'
 
 interface EventFeedPageProps {
   params: Promise<{ id: string }>
 }
 
-// Mock event data based on the screenshot
-const mockEvents = [
-  {
-    id: '1',
-    occurredAt: new Date('2024-01-20T10:00:00'),
-    source: 'entries',
-    sourceIcon: Sparkles,
-    description: 'Matched bank deposit to Invoice #1042',
-    type: 'match',
-  },
-  {
-    id: '2',
-    occurredAt: new Date('2024-01-20T09:32:00'),
-    source: 'qbo',
-    sourceLabel: 'QBO',
-    description: '$2,500.00 received from Client ABC Inc',
-    type: 'income',
-  },
-  {
-    id: '3',
-    occurredAt: new Date('2024-01-20T06:15:00'),
-    source: 'qbo',
-    sourceLabel: 'QBO',
-    description: '$450.00 bill created for Office Depot',
-    type: 'expense',
-  },
-  {
-    id: '4',
-    occurredAt: new Date('2024-01-20T04:00:00'),
-    source: 'qbo',
-    sourceLabel: 'QBO',
-    description: 'Invoice #1043 created for $8,750.00',
-    type: 'invoice',
-  },
-  {
-    id: '5',
-    occurredAt: new Date('2024-01-20T03:45:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$1,234.56 spent at Amazon Web Services',
-    type: 'expense',
-  },
-  {
-    id: '6',
-    occurredAt: new Date('2024-01-20T02:30:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$156.32 spent at Staples',
-    type: 'expense',
-  },
-  {
-    id: '7',
-    occurredAt: new Date('2024-01-19T11:45:00'),
-    source: 'entries',
-    sourceIcon: Sparkles,
-    description: 'Categorized Staples purchase as Office Supplies',
-    type: 'categorization',
-  },
-  {
-    id: '8',
-    occurredAt: new Date('2024-01-19T11:20:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$99.00 spent at Slack Technologies',
-    type: 'expense',
-  },
-  {
-    id: '9',
-    occurredAt: new Date('2024-01-19T09:00:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$2,500.00 deposit from Client ABC Inc',
-    type: 'income',
-  },
-  {
-    id: '10',
-    occurredAt: new Date('2024-01-19T06:30:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$45.00 spent at Zoom Video Communications',
-    type: 'expense',
-  },
-  {
-    id: '11',
-    occurredAt: new Date('2024-01-18T10:45:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$299.00 spent at Adobe Inc',
-    type: 'expense',
-  },
-  {
-    id: '12',
-    occurredAt: new Date('2024-01-18T05:00:00'),
-    source: 'plaid',
-    sourceLabel: 'Plaid',
-    description: '$3,500.00 rent payment to WeWork',
-    type: 'expense',
-  },
-]
+// Map event source IDs to ConnectorType for logo.dev logos
+const sourceConnectorMap: Record<string, ConnectorType> = {
+  qbo: 'quickbooks',
+  plaid: 'plaid',
+}
 
 // Mock data sources
 const dataSources = [
-  { id: 'qbo', name: 'QuickBooks Online', icon: '🟢', connected: true },
-  { id: 'plaid', name: 'Plaid', icon: '⬛', connected: true },
-  { id: 'entries', name: 'Entries AI', icon: '⚡', connected: true },
+  { id: 'qbo', name: 'QuickBooks Online', connector: 'quickbooks' as ConnectorType, connected: true },
+  { id: 'plaid', name: 'Plaid', connector: 'plaid' as ConnectorType, connected: true },
+  { id: 'entries', name: 'Entries AI', connected: true },
 ]
+
+// Map transaction source field to feed source identifier
+function mapTransactionSource(source: string): { source: string; sourceLabel: string } {
+  if (source === 'bank') return { source: 'plaid', sourceLabel: 'Plaid' }
+  if (source === 'qbo') return { source: 'qbo', sourceLabel: 'QBO' }
+  return { source: 'entries', sourceLabel: 'Entries' }
+}
+
+// Map entity type to feed source identifier for non-transaction entities
+function mapEntityTypeSource(_entityType: string): { source: string; sourceLabel: string } {
+  // Matches, anomalies, rules, AI actions are all Entries-originated
+  return { source: 'entries', sourceLabel: 'Entries' }
+}
 
 function formatEventTime(date: Date): string {
   return date.toLocaleDateString('en-US', {
@@ -134,23 +56,29 @@ function formatEventTime(date: Date): string {
   })
 }
 
-function SourceBadge({ source, label, icon: Icon }: { source: string; label?: string; icon?: React.ComponentType<{ className?: string }> }) {
-  if (source === 'entries' && Icon) {
+function SourceBadge({ source, label }: { source: string; label?: string }) {
+  const connectorType = sourceConnectorMap[source]
+
+  if (source === 'entries') {
     return (
       <div className="flex items-center gap-1.5 text-sm text-primary">
-        <Icon className="h-4 w-4" />
+        <Sparkles className="h-4 w-4" />
         <span>Entries</span>
       </div>
     )
   }
 
-  const colors: Record<string, string> = {
-    qbo: 'bg-green-500/20 text-green-400 border-green-500/30',
-    plaid: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  if (connectorType) {
+    return (
+      <div className="flex items-center gap-1.5 text-sm">
+        <ConnectorLogo connector={connectorType} size="sm" />
+        <span className="text-muted-foreground">{label}</span>
+      </div>
+    )
   }
 
   return (
-    <Badge variant="outline" className={cn('text-xs font-normal', colors[source])}>
+    <Badge variant="outline" className="text-xs font-normal">
       {label}
     </Badge>
   )
@@ -168,13 +96,59 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
     notFound()
   }
 
+  // Fetch real Event records for this workspace
+  const events = await prisma.event.findMany({
+    where: { workspaceId: id },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
+
+  // For transaction events, look up the transaction source to determine feed source
+  const transactionEntityIds = events
+    .filter((e) => e.entityType === 'transaction')
+    .map((e) => e.entityId)
+
+  const transactions = transactionEntityIds.length > 0
+    ? await prisma.transaction.findMany({
+        where: { id: { in: transactionEntityIds } },
+        select: { id: true, source: true },
+      })
+    : []
+
+  const transactionSourceMap = new Map(
+    transactions.map((t) => [t.id, t.source])
+  )
+
+  // Build feed items with source info
+  const feedItems = events.map((event) => {
+    let sourceInfo: { source: string; sourceLabel: string }
+
+    if (event.entityType === 'transaction') {
+      const txnSource = transactionSourceMap.get(event.entityId)
+      sourceInfo = txnSource
+        ? mapTransactionSource(txnSource)
+        : mapEntityTypeSource(event.entityType)
+    } else {
+      sourceInfo = mapEntityTypeSource(event.entityType)
+    }
+
+    return {
+      id: event.id,
+      occurredAt: event.createdAt,
+      source: sourceInfo.source,
+      sourceLabel: sourceInfo.sourceLabel,
+      description: event.title,
+      entityType: event.entityType,
+    }
+  })
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/' },
-          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed` },
-          { label: 'Event Feed' },
+          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
+          { label: 'Event Feed', icon: <Activity className="h-4 w-4" /> },
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
@@ -199,7 +173,11 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
                       key={source.id}
                       className="flex items-center gap-3 py-1.5"
                     >
-                      <span className="text-sm">{source.icon}</span>
+                      {source.connector ? (
+                        <ConnectorLogo connector={source.connector} size="sm" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      )}
                       <span className="text-sm">{source.name}</span>
                     </div>
                   ))}
@@ -247,7 +225,7 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
                   Date Range
                 </h3>
                 <Button variant="outline" className="w-full justify-start text-sm">
-                  📅 All time
+                  All time
                 </Button>
               </CardContent>
             </Card>
@@ -272,10 +250,11 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
 
                 {/* Event rows */}
                 <div className="divide-y divide-border">
-                  {mockEvents.map((event) => (
-                    <div
+                  {feedItems.map((event) => (
+                    <Link
                       key={event.id}
-                      className="grid grid-cols-[180px_100px_1fr] gap-4 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+                      href={`/workspace/${workspace.id}/event/${event.id}`}
+                      className="grid grid-cols-[180px_100px_1fr] gap-4 px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       <div className="text-sm text-muted-foreground">
                         {formatEventTime(event.occurredAt)}
@@ -284,12 +263,16 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
                         <SourceBadge
                           source={event.source}
                           label={event.sourceLabel}
-                          icon={event.sourceIcon}
                         />
                       </div>
                       <div className="text-sm">{event.description}</div>
-                    </div>
+                    </Link>
                   ))}
+                  {feedItems.length === 0 && (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No events yet. Events will appear here as transactions, matches, and other activities occur.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
