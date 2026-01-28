@@ -67,9 +67,7 @@ export async function updateEventProperty(
         action: 'property_updated',
         entityType: 'Event',
         entityId: eventId,
-        oldValue: oldValue !== null
-          ? JSON.stringify({ propertyName: definition.name, oldValue })
-          : null,
+        oldValue: JSON.stringify({ propertyName: definition.name, oldValue: oldValue ?? null }),
         newValue: JSON.stringify({ propertyName: definition.name, newValue: value }),
       },
     })
