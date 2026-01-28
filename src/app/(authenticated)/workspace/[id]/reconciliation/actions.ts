@@ -18,6 +18,12 @@ export interface ApproveMatchResult {
   matchId?: string
 }
 
+export interface CreateManualMatchResult {
+  success: boolean
+  error?: string
+  matchId?: string
+}
+
 /**
  * Approve a suggested match between a bank and QBO transaction
  * Creates a Match record and updates both transactions to 'matched' status
@@ -84,6 +90,80 @@ export async function approveMatch(
   } catch (error) {
     console.error('Failed to approve match:', error)
     return { success: false, error: 'Failed to approve match. Please try again.' }
+  }
+}
+
+/**
+ * Create a manual match between a bank and QBO transaction
+ * Creates a Match record with type 'manual' and updates both transactions to 'matched' status
+ */
+export async function createManualMatch(
+  workspaceId: string,
+  bankTransactionId: string,
+  qboTransactionId: string
+): Promise<CreateManualMatchResult> {
+  try {
+    // Verify both transactions exist and belong to this workspace
+    const [bankTxn, qboTxn] = await Promise.all([
+      prisma.transaction.findFirst({
+        where: { id: bankTransactionId, workspaceId },
+      }),
+      prisma.transaction.findFirst({
+        where: { id: qboTransactionId, workspaceId },
+      }),
+    ])
+
+    if (!bankTxn || !qboTxn) {
+      return { success: false, error: 'One or both transactions not found' }
+    }
+
+    if (bankTxn.source !== 'bank') {
+      return { success: false, error: 'First transaction must be a bank transaction' }
+    }
+
+    if (qboTxn.source !== 'qbo') {
+      return { success: false, error: 'Second transaction must be a QBO transaction' }
+    }
+
+    if (bankTxn.status === 'matched' || qboTxn.status === 'matched') {
+      return { success: false, error: 'One or both transactions already matched' }
+    }
+
+    // Create match and update transactions in a transaction
+    const match = await prisma.$transaction(async (tx) => {
+      // Create the match record with manual type
+      const newMatch = await tx.match.create({
+        data: {
+          workspaceId,
+          bankTransactionId,
+          qboTransactionId,
+          matchType: 'manual',
+          confidence: 1.0, // Manual matches have full confidence
+          reasoning: 'Manually matched by user',
+        },
+      })
+
+      // Update both transactions to matched status
+      await tx.transaction.update({
+        where: { id: bankTransactionId },
+        data: { status: 'matched' },
+      })
+
+      await tx.transaction.update({
+        where: { id: qboTransactionId },
+        data: { status: 'matched' },
+      })
+
+      return newMatch
+    })
+
+    // Revalidate the reconciliation page to show updated state
+    revalidatePath(`/workspace/${workspaceId}/reconciliation`)
+
+    return { success: true, matchId: match.id }
+  } catch (error) {
+    console.error('Failed to create manual match:', error)
+    return { success: false, error: 'Failed to create manual match. Please try again.' }
   }
 }
 

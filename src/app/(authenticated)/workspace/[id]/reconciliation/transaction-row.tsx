@@ -8,8 +8,10 @@ import type { MatchSuggestion } from './actions'
 interface TransactionRowProps {
   transaction: Transaction
   isSelected?: boolean
+  isManualSelected?: boolean
   isSuggestionHighlighted?: boolean
   onClick?: () => void
+  onShiftClick?: (e: React.MouseEvent) => void
   onApproveClick?: () => void
   matchSuggestion?: MatchSuggestion
 }
@@ -64,8 +66,10 @@ function getMatchTypeLabel(matchType: string): string {
 export function TransactionRow({
   transaction,
   isSelected = false,
+  isManualSelected = false,
   isSuggestionHighlighted = false,
   onClick,
+  onShiftClick,
   onApproveClick,
   matchSuggestion,
 }: TransactionRowProps) {
@@ -79,25 +83,35 @@ export function TransactionRow({
     onApproveClick?.()
   }
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey && onShiftClick) {
+      onShiftClick(e)
+    } else if (onClick) {
+      onClick()
+    }
+  }
+
   return (
     <div
       className={cn(
         'flex items-center justify-between px-4 py-3 transition-colors',
-        onClick && 'cursor-pointer',
+        (onClick || onShiftClick) && 'cursor-pointer',
         isSelected
           ? 'bg-primary/10 border-l-2 border-l-primary'
-          : isSuggestionHighlighted
-            ? 'bg-primary/20 border-l-2 border-l-primary ring-2 ring-primary ring-inset'
-            : hasSuggestion
-              ? cn(
-                  'border-l-2 cursor-pointer hover:bg-opacity-75',
-                  confidenceLevel === 'high' && 'bg-green-50 border-l-green-500',
-                  confidenceLevel === 'medium' && 'bg-yellow-50 border-l-yellow-500',
-                  confidenceLevel === 'low' && 'bg-red-50 border-l-red-400'
-                )
-              : onClick ? 'hover:bg-muted/50' : ''
+          : isManualSelected
+            ? 'bg-blue-100 border-l-2 border-l-blue-500 ring-2 ring-blue-400 ring-inset'
+            : isSuggestionHighlighted
+              ? 'bg-primary/20 border-l-2 border-l-primary ring-2 ring-primary ring-inset'
+              : hasSuggestion
+                ? cn(
+                    'border-l-2 cursor-pointer hover:bg-opacity-75',
+                    confidenceLevel === 'high' && 'bg-green-50 border-l-green-500',
+                    confidenceLevel === 'medium' && 'bg-yellow-50 border-l-yellow-500',
+                    confidenceLevel === 'low' && 'bg-red-50 border-l-red-400'
+                  )
+                : (onClick || onShiftClick) ? 'hover:bg-muted/50' : ''
       )}
-      onClick={onClick}
+      onClick={handleClick}
       title={hasSuggestion ? matchSuggestion.reasoning : undefined}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">

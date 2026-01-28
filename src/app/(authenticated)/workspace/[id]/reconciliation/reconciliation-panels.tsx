@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, FileSpreadsheet } from 'lucide-react'
+import { Building2, FileSpreadsheet, Link2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
-import { getMatchSuggestionsForTransaction, approveMatch, MatchSuggestion } from './actions'
+import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, MatchSuggestion } from './actions'
 import { toast } from 'sonner'
 
 interface ReconciliationPanelsProps {
@@ -22,10 +23,12 @@ export function ReconciliationPanels({
 }: ReconciliationPanelsProps) {
   const router = useRouter()
   const [selectedBankTxnId, setSelectedBankTxnId] = useState<string | null>(null)
+  const [selectedQboTxnId, setSelectedQboTxnId] = useState<string | null>(null) // For manual matching
   const [highlightedSuggestionId, setHighlightedSuggestionId] = useState<string | null>(null)
   const [matchSuggestions, setMatchSuggestions] = useState<MatchSuggestion[]>([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
+  const [isCreatingManualMatch, setIsCreatingManualMatch] = useState(false)
 
   // Get suggestion for a specific QBO transaction
   const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
@@ -37,6 +40,7 @@ export function ReconciliationPanels({
     if (!selectedBankTxnId) {
       setMatchSuggestions([])
       setHighlightedSuggestionId(null)
+      setSelectedQboTxnId(null)
       return
     }
 
@@ -44,11 +48,13 @@ export function ReconciliationPanels({
     if (!selectedBankTxn) {
       setMatchSuggestions([])
       setHighlightedSuggestionId(null)
+      setSelectedQboTxnId(null)
       return
     }
 
     setIsLoadingSuggestions(true)
     setHighlightedSuggestionId(null)
+    setSelectedQboTxnId(null)
     getMatchSuggestionsForTransaction(selectedBankTxn, qboTransactions)
       .then(suggestions => {
         setMatchSuggestions(suggestions)
@@ -74,6 +80,49 @@ export function ReconciliationPanels({
     setHighlightedSuggestionId((prev) =>
       prev === qboTxnId ? null : qboTxnId
     )
+  }
+
+  const handleQboTxnClick = (qboTxnId: string, e: React.MouseEvent) => {
+    // Only allow manual selection when shift is held and a bank transaction is selected
+    if (e.shiftKey && selectedBankTxnId) {
+      // Clear suggestion highlight when doing manual selection
+      setHighlightedSuggestionId(null)
+      // Toggle selection: clicking the same transaction deselects it
+      setSelectedQboTxnId((prev) =>
+        prev === qboTxnId ? null : qboTxnId
+      )
+    }
+  }
+
+  const handleCreateManualMatch = async () => {
+    if (!selectedBankTxnId || !selectedQboTxnId) return
+
+    setIsCreatingManualMatch(true)
+    try {
+      const result = await createManualMatch(
+        workspaceId,
+        selectedBankTxnId,
+        selectedQboTxnId
+      )
+
+      if (result.success) {
+        toast.success('Manual match created successfully')
+        // Reset selection state
+        setSelectedBankTxnId(null)
+        setSelectedQboTxnId(null)
+        setHighlightedSuggestionId(null)
+        setMatchSuggestions([])
+        // Refresh the page to get updated data
+        router.refresh()
+      } else {
+        toast.error(result.error || 'Failed to create manual match')
+      }
+    } catch (error) {
+      console.error('Failed to create manual match:', error)
+      toast.error('Failed to create manual match. Please try again.')
+    } finally {
+      setIsCreatingManualMatch(false)
+    }
   }
 
   const handleApproveMatch = async () => {
@@ -112,8 +161,37 @@ export function ReconciliationPanels({
     }
   }
 
+  // Show manual match action bar when both bank and QBO transactions are selected
+  const showManualMatchBar = selectedBankTxnId && selectedQboTxnId
+
   return (
-    <div className="grid grid-cols-2 gap-4 h-[calc(100vh-250px)]">
+    <div className="space-y-3">
+      {/* Manual Match Action Bar */}
+      {showManualMatchBar && (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-sm text-blue-700">
+            <Link2 className="h-4 w-4" />
+            <span>Ready to create manual match between selected transactions</span>
+          </div>
+          <Button
+            onClick={handleCreateManualMatch}
+            disabled={isCreatingManualMatch}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {isCreatingManualMatch ? 'Creating...' : 'Create Match'}
+          </Button>
+        </div>
+      )}
+
+      {/* Hint when bank is selected but QBO is not */}
+      {selectedBankTxnId && !selectedQboTxnId && !highlightedSuggestionId && matchSuggestions.length === 0 && !isLoadingSuggestions && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+          <Link2 className="h-4 w-4" />
+          <span>Shift+click a QBO transaction to create a manual match</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 h-[calc(100vh-250px)]">
       {/* Bank Transactions Panel */}
       <Card className="flex flex-col">
         <CardHeader className="flex-shrink-0 border-b py-3">
@@ -173,13 +251,16 @@ export function ReconciliationPanels({
               {qboTransactions.map((txn) => {
                 const suggestion = getSuggestionForQbo(txn.id)
                 const isHighlighted = highlightedSuggestionId === txn.id
+                const isManualSelected = selectedQboTxnId === txn.id
                 return (
                   <TransactionRow
                     key={txn.id}
                     transaction={txn}
                     matchSuggestion={suggestion}
                     isSuggestionHighlighted={isHighlighted}
+                    isManualSelected={isManualSelected}
                     onClick={suggestion ? () => handleSuggestionClick(txn.id) : undefined}
+                    onShiftClick={selectedBankTxnId ? (e) => handleQboTxnClick(txn.id, e) : undefined}
                     onApproveClick={isHighlighted && !isApproving ? handleApproveMatch : undefined}
                   />
                 )
@@ -188,6 +269,7 @@ export function ReconciliationPanels({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
