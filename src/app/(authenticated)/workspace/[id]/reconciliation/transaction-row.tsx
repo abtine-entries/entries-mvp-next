@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils'
 
 interface TransactionRowProps {
   transaction: Transaction
+  isSelected?: boolean
+  onClick?: () => void
 }
 
 function formatAmount(amount: Transaction['amount']): string {
@@ -26,12 +28,20 @@ function truncateDescription(description: string, maxLength: number = 30): strin
   return description.slice(0, maxLength) + '...'
 }
 
-export function TransactionRow({ transaction }: TransactionRowProps) {
+export function TransactionRow({ transaction, isSelected = false, onClick }: TransactionRowProps) {
   const amount = Number(transaction.amount)
   const isPositive = amount >= 0
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 hover:bg-muted/50 cursor-pointer">
+    <div
+      className={cn(
+        'flex items-center justify-between px-4 py-3 cursor-pointer transition-colors',
+        isSelected
+          ? 'bg-primary/10 border-l-2 border-l-primary'
+          : 'hover:bg-muted/50'
+      )}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <span className="text-sm text-muted-foreground w-12 flex-shrink-0">
           {formatDate(transaction.date)}
