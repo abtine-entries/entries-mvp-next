@@ -1,7 +1,9 @@
+import { Suspense } from 'react'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle, Clock, AlertTriangle, TrendingDown } from 'lucide-react'
 import { QuickActions } from './quick-actions'
+import { PeriodSelector } from './period-selector'
 
 interface WorkspaceDashboardProps {
   params: Promise<{ id: string }>
@@ -78,6 +80,11 @@ export default async function WorkspaceDashboard({
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Suspense fallback={<div className="h-9 w-[180px] bg-muted rounded animate-pulse" />}>
+          <PeriodSelector />
+        </Suspense>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Matched Card - Green */}
         <Card className="border-green-200 bg-green-50">
