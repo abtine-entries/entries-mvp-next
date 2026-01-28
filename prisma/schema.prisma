@@ -34,6 +34,7 @@ model Workspace {
   categories   Category[]
   transactions Transaction[]
   matches      Match[]
+  rules        Rule[]
 }
 
 model Category {
@@ -48,6 +49,7 @@ model Category {
   parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children     Category[]    @relation("CategoryHierarchy")
   transactions Transaction[]
+  rules        Rule[]
 }
 
 model Transaction {
@@ -86,4 +88,19 @@ model Match {
   qboTransaction     Transaction @relation("QboTransaction", fields: [qboTransactionId], references: [id])
 
   @@unique([bankTransactionId, qboTransactionId])
+}
+
+model Rule {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  ruleText        String
+  parsedCondition String   // JSON stored as string (SQLite doesn't have native JSON type)
+  categoryId      String
+  isActive        Boolean  @default(true)
+  matchCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  category        Category  @relation(fields: [categoryId], references: [id])
 }
