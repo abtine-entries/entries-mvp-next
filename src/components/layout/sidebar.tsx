@@ -15,10 +15,10 @@ import {
   Tags,
   BookOpen,
   ChevronDown,
-  ChevronUp,
   Plus,
   Check,
   Building2,
+  User,
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react'
@@ -164,63 +164,90 @@ export function Sidebar({
       <div className="px-2 py-2">
         <Popover open={workspaceSwitcherOpen} onOpenChange={setWorkspaceSwitcherOpen}>
           <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
+            <button
               className={cn(
-                'w-full justify-between font-medium',
-                collapsed ? 'px-2' : 'px-3'
+                'flex items-center rounded-md text-sm transition-colors min-h-[44px] w-full',
+                'bg-sidebar-accent text-sidebar-accent-foreground font-semibold hover:bg-sidebar-accent/80',
+                collapsed ? 'justify-center py-2' : 'justify-between py-2 px-3'
               )}
             >
               {collapsed ? (
-                <Building2 className="h-4 w-4" />
+                <User className="h-4 w-4" />
               ) : (
                 <>
                   <span className="truncate">{currentWorkspace?.name || 'Select Client'}</span>
-                  {workspaceSwitcherOpen ? (
-                    <ChevronUp className="h-4 w-4 shrink-0 opacity-50" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                  )}
+                  <ChevronDown className={cn(
+                    'h-4 w-4 flex-shrink-0 ml-2 transition-transform',
+                    workspaceSwitcherOpen && 'rotate-180'
+                  )} />
                 </>
               )}
-            </Button>
+            </button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 p-0" align="start" side="right">
-            <div className="p-2">
-              <Input
-                placeholder="Search clients..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9"
-              />
+          <PopoverContent
+            className="w-64 p-0"
+            align="start"
+            side={collapsed ? 'right' : undefined}
+            sideOffset={collapsed ? 8 : 4}
+          >
+            {/* Search Input */}
+            <div className="p-2 border-b border-border">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search clients..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
             </div>
-            <div className="max-h-64 overflow-auto">
-              {filteredWorkspaces.map((ws) => (
-                <Link
-                  key={ws.id}
-                  href={`/workspace/${ws.id}/event-feed`}
-                  onClick={() => {
-                    setWorkspaceSwitcherOpen(false)
-                    setSearchQuery('')
-                  }}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 text-sm transition-colors duration-150 hover:bg-accent',
-                    currentWorkspace?.id === ws.id && 'bg-primary/20'
-                  )}
-                >
-                  <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 truncate">{ws.name}</span>
-                  {currentWorkspace?.id === ws.id && (
-                    <Check className="h-4 w-4 shrink-0 text-primary" />
-                  )}
-                </Link>
-              ))}
+
+            {/* Workspace List */}
+            <div className="max-h-64 overflow-y-auto py-1">
+              {filteredWorkspaces.length > 0 ? (
+                filteredWorkspaces.map((ws) => (
+                  <Link
+                    key={ws.id}
+                    href={`/workspace/${ws.id}/event-feed`}
+                    onClick={() => {
+                      setWorkspaceSwitcherOpen(false)
+                      setSearchQuery('')
+                    }}
+                    className={cn(
+                      'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors min-h-[36px]',
+                      currentWorkspace?.id === ws.id
+                        ? 'bg-primary/10 text-foreground'
+                        : 'text-foreground hover:bg-muted'
+                    )}
+                  >
+                    <Building2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate text-left">{ws.name}</span>
+                    {currentWorkspace?.id === ws.id && (
+                      <Check className="h-4 w-4 flex-shrink-0 text-primary" />
+                    )}
+                  </Link>
+                ))
+              ) : searchQuery ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  No clients match "{searchQuery}"
+                </div>
+              ) : (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  No clients found
+                </div>
+              )}
             </div>
+
+            {/* Add Client Button */}
             <div className="border-t border-border p-2">
               <Link
                 href="/?create=true"
                 onClick={() => setWorkspaceSwitcherOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground"
+                className={cn(
+                  'flex items-center gap-2 w-full px-2 py-2 rounded-md text-sm transition-colors min-h-[36px]',
+                  'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
               >
                 <Plus className="h-4 w-4" />
                 <span>Add Client</span>
