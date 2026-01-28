@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Check, X } from 'lucide-react'
+import { Check, X, Info } from 'lucide-react'
 import type { MatchSuggestion } from './actions'
 
 interface TransactionRowProps {
@@ -17,6 +17,7 @@ interface TransactionRowProps {
   onShiftClick?: (e: React.MouseEvent) => void
   onApproveClick?: () => void
   onRejectClick?: () => void
+  onDetailClick?: () => void
   matchSuggestion?: MatchSuggestion
 }
 
@@ -78,6 +79,7 @@ export function TransactionRow({
   onShiftClick,
   onApproveClick,
   onRejectClick,
+  onDetailClick,
   matchSuggestion,
 }: TransactionRowProps) {
   const amount = Number(transaction.amount)
@@ -105,6 +107,11 @@ export function TransactionRow({
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+  }
+
+  const handleDetailClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onDetailClick?.()
   }
 
   return (
@@ -175,6 +182,17 @@ export function TransactionRow({
         >
           {formatAmount(transaction.amount)}
         </span>
+        {onDetailClick && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={handleDetailClick}
+            title="View details"
+          >
+            <Info className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        )}
         {isSuggestionHighlighted && (
           <div className="flex items-center gap-1">
             <Button

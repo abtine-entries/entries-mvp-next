@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
 import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, rejectMatchSuggestion, getHighConfidenceMatches, bulkApproveHighConfidenceMatches, MatchSuggestion, HighConfidenceMatch } from './actions'
+import { TransactionDetailModal } from './transaction-detail-modal'
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,9 @@ export function ReconciliationPanels({
   const [highConfidenceMatches, setHighConfidenceMatches] = useState<HighConfidenceMatch[]>([])
   const [isLoadingHighConfidence, setIsLoadingHighConfidence] = useState(false)
   const [isBulkApproving, setIsBulkApproving] = useState(false)
+
+  // Transaction detail modal state
+  const [detailModalTxnId, setDetailModalTxnId] = useState<string | null>(null)
 
   // Get suggestion for a specific QBO transaction (excluding rejected ones)
   const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
@@ -320,6 +324,16 @@ export function ReconciliationPanels({
   // Show manual match action bar when both bank and QBO transactions are selected
   const showManualMatchBar = selectedBankTxnId && selectedQboTxnId
 
+  // Handler for opening transaction detail modal
+  const handleDetailClick = (transactionId: string) => {
+    setDetailModalTxnId(transactionId)
+  }
+
+  // Handler for viewing matched transaction from within the detail modal
+  const handleViewMatchedTransaction = (transactionId: string) => {
+    setDetailModalTxnId(transactionId)
+  }
+
   return (
     <div className="space-y-3">
       {/* Manual Match Action Bar */}
@@ -462,6 +476,7 @@ export function ReconciliationPanels({
                   isChecked={checkedBankTxnIds.has(txn.id)}
                   onCheckedChange={(checked) => handleBankTxnCheckedChange(txn.id, checked)}
                   onClick={() => handleBankTxnClick(txn.id)}
+                  onDetailClick={() => handleDetailClick(txn.id)}
                 />
               ))}
             </div>
@@ -520,6 +535,7 @@ export function ReconciliationPanels({
                     onShiftClick={selectedBankTxnId ? (e) => handleQboTxnClick(txn.id, e) : undefined}
                     onApproveClick={isHighlighted && !isApproving ? handleApproveMatch : undefined}
                     onRejectClick={isHighlighted && !isRejecting ? handleRejectSuggestion : undefined}
+                    onDetailClick={() => handleDetailClick(txn.id)}
                   />
                 )
               })}
@@ -528,6 +544,13 @@ export function ReconciliationPanels({
         </CardContent>
       </Card>
       </div>
+
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal
+        transactionId={detailModalTxnId}
+        onClose={() => setDetailModalTxnId(null)}
+        onViewMatchedTransaction={handleViewMatchedTransaction}
+      />
     </div>
   )
 }

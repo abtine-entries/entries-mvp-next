@@ -1,6 +1,6 @@
 'use server'
 
-import { Transaction } from '@/generated/prisma/client'
+import { Transaction, Category, Match } from '@/generated/prisma/client'
 import type { MatchType } from '@/lib/services/mock-ai-matching'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
@@ -43,6 +43,57 @@ export interface HighConfidenceMatch {
   confidence: number
   matchType: MatchType
   reasoning: string
+}
+
+// Transaction with all related details for the modal
+export type TransactionWithDetails = Transaction & {
+  category: Category | null
+  bankMatches: (Match & {
+    qboTransaction: Transaction
+  })[]
+  qboMatches: (Match & {
+    bankTransaction: Transaction
+  })[]
+}
+
+export interface TransactionDetailsResult {
+  transaction?: TransactionWithDetails
+  error?: string
+}
+
+/**
+ * Get full transaction details including category and matched transactions
+ */
+export async function getTransactionDetails(
+  transactionId: string
+): Promise<TransactionDetailsResult> {
+  try {
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      include: {
+        category: true,
+        bankMatches: {
+          include: {
+            qboTransaction: true,
+          },
+        },
+        qboMatches: {
+          include: {
+            bankTransaction: true,
+          },
+        },
+      },
+    })
+
+    if (!transaction) {
+      return { error: 'Transaction not found' }
+    }
+
+    return { transaction }
+  } catch (error) {
+    console.error('Failed to fetch transaction details:', error)
+    return { error: 'Failed to load transaction details' }
+  }
 }
 
 /**
