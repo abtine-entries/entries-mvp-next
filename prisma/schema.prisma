@@ -37,8 +37,9 @@ model Workspace {
   matches      Match[]
   rules        Rule[]
   anomalies    Anomaly[]
-  auditLogs    AuditLog[]
-  events       Event[]
+  auditLogs              AuditLog[]
+  events                 Event[]
+  propertyDefinitions    EventPropertyDefinition[]
 }
 
 model Category {
@@ -150,5 +151,31 @@ model Event {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
+  properties  EventProperty[]
+}
+
+model EventPropertyDefinition {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  type        String   // text, number, boolean, date, select
+  options     String?  // JSON array string for select type
+  position    Int
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
+  properties  EventProperty[]
+}
+
+model EventProperty {
+  id           String   @id @default(cuid())
+  eventId      String
+  definitionId String
+  value        String   // stored as JSON string to support all types
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  event        Event                   @relation(fields: [eventId], references: [id])
+  definition   EventPropertyDefinition @relation(fields: [definitionId], references: [id])
 }
