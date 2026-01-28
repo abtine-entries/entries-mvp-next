@@ -20,6 +20,7 @@ model User {
 
   workspaces   Workspace[]
   auditLogs    AuditLog[]
+  eventNotes   EventNote[]
 }
 
 model Workspace {
@@ -153,6 +154,7 @@ model Event {
 
   workspace   Workspace       @relation(fields: [workspaceId], references: [id])
   properties  EventProperty[]
+  notes       EventNote[]
 }
 
 model EventPropertyDefinition {
@@ -178,4 +180,17 @@ model EventProperty {
 
   event        Event                   @relation(fields: [eventId], references: [id])
   definition   EventPropertyDefinition @relation(fields: [definitionId], references: [id])
+}
+
+model EventNote {
+  id         String   @id @default(cuid())
+  eventId    String
+  authorId   String?  // nullable — null means AI-authored
+  authorType String   // 'user' or 'ai'
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event      Event    @relation(fields: [eventId], references: [id])
+  author     User?    @relation(fields: [authorId], references: [id])
 }
