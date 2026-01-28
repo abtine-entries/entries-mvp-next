@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle, Clock, AlertTriangle, TrendingDown } from 'lucide-react'
+import { QuickActions } from './quick-actions'
 
 interface WorkspaceDashboardProps {
   params: Promise<{ id: string }>
@@ -149,6 +150,12 @@ export default async function WorkspaceDashboard({
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="pt-4">
+        <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
+        <QuickActions workspaceId={id} />
       </div>
     </div>
   )
