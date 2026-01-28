@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, FileSpreadsheet } from 'lucide-react'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
+import { getMatchSuggestionsForTransaction, MatchSuggestion } from './actions'
 
 interface ReconciliationPanelsProps {
   bankTransactions: Transaction[]
@@ -15,11 +16,45 @@ export function ReconciliationPanels({
   bankTransactions,
   qboTransactions,
 }: ReconciliationPanelsProps) {
-  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
+  const [selectedBankTxnId, setSelectedBankTxnId] = useState<string | null>(null)
+  const [matchSuggestions, setMatchSuggestions] = useState<MatchSuggestion[]>([])
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
 
-  const handleTransactionClick = (transactionId: string) => {
+  // Get suggestion for a specific QBO transaction
+  const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
+    return matchSuggestions.find(s => s.qboTxnId === qboTxnId)
+  }
+
+  // Fetch match suggestions when a bank transaction is selected
+  useEffect(() => {
+    if (!selectedBankTxnId) {
+      setMatchSuggestions([])
+      return
+    }
+
+    const selectedBankTxn = bankTransactions.find(t => t.id === selectedBankTxnId)
+    if (!selectedBankTxn) {
+      setMatchSuggestions([])
+      return
+    }
+
+    setIsLoadingSuggestions(true)
+    getMatchSuggestionsForTransaction(selectedBankTxn, qboTransactions)
+      .then(suggestions => {
+        setMatchSuggestions(suggestions)
+      })
+      .catch(error => {
+        console.error('Failed to get match suggestions:', error)
+        setMatchSuggestions([])
+      })
+      .finally(() => {
+        setIsLoadingSuggestions(false)
+      })
+  }, [selectedBankTxnId, bankTransactions, qboTransactions])
+
+  const handleBankTxnClick = (transactionId: string) => {
     // Toggle selection: clicking the same transaction deselects it
-    setSelectedTransactionId((prev) =>
+    setSelectedBankTxnId((prev) =>
       prev === transactionId ? null : transactionId
     )
   }
@@ -50,8 +85,8 @@ export function ReconciliationPanels({
                 <TransactionRow
                   key={txn.id}
                   transaction={txn}
-                  isSelected={selectedTransactionId === txn.id}
-                  onClick={() => handleTransactionClick(txn.id)}
+                  isSelected={selectedBankTxnId === txn.id}
+                  onClick={() => handleBankTxnClick(txn.id)}
                 />
               ))}
             </div>
@@ -69,6 +104,9 @@ export function ReconciliationPanels({
             </div>
             <span className="text-sm text-muted-foreground">
               {qboTransactions.length} transactions
+              {isLoadingSuggestions && (
+                <span className="ml-2 text-xs text-muted-foreground">(analyzing...)</span>
+              )}
             </span>
           </div>
         </CardHeader>
@@ -79,14 +117,16 @@ export function ReconciliationPanels({
             </div>
           ) : (
             <div className="divide-y">
-              {qboTransactions.map((txn) => (
-                <TransactionRow
-                  key={txn.id}
-                  transaction={txn}
-                  isSelected={selectedTransactionId === txn.id}
-                  onClick={() => handleTransactionClick(txn.id)}
-                />
-              ))}
+              {qboTransactions.map((txn) => {
+                const suggestion = getSuggestionForQbo(txn.id)
+                return (
+                  <TransactionRow
+                    key={txn.id}
+                    transaction={txn}
+                    matchSuggestion={suggestion}
+                  />
+                )
+              })}
             </div>
           )}
         </CardContent>

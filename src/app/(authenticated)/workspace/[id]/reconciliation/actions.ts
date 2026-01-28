@@ -1,0 +1,233 @@
+'use server'
+
+import { Transaction } from '@/generated/prisma/client'
+import type { MatchType } from '@/lib/services/mock-ai-matching'
+
+export interface MatchSuggestion {
+  qboTxnId: string
+  confidence: number
+  matchType: MatchType
+  reasoning: string
+}
+
+/**
+ * Get AI-suggested matches for a selected bank transaction
+ * Uses deterministic matching logic based on amount, date, and description
+ */
+export async function getMatchSuggestionsForTransaction(
+  bankTransaction: Transaction,
+  qboTransactions: Transaction[]
+): Promise<MatchSuggestion[]> {
+  const suggestions: MatchSuggestion[] = []
+  const bankAmount = Number(bankTransaction.amount)
+  const bankDate = new Date(bankTransaction.date)
+
+  for (const qboTxn of qboTransactions) {
+    // Skip already matched transactions
+    if (qboTxn.status === 'matched') continue
+
+    const qboAmount = Number(qboTxn.amount)
+    const qboDate = new Date(qboTxn.date)
+
+    const matchResult = evaluateMatch(
+      bankAmount,
+      bankDate,
+      bankTransaction.description,
+      qboAmount,
+      qboDate,
+      qboTxn.description
+    )
+
+    if (matchResult.confidence >= 0.5) {
+      suggestions.push({
+        qboTxnId: qboTxn.id,
+        confidence: matchResult.confidence,
+        matchType: matchResult.matchType,
+        reasoning: matchResult.reasoning,
+      })
+    }
+  }
+
+  // Sort by confidence descending
+  return suggestions.sort((a, b) => b.confidence - a.confidence)
+}
+
+/**
+ * Evaluate the match quality between a bank and QBO transaction
+ */
+function evaluateMatch(
+  bankAmount: number,
+  bankDate: Date,
+  bankDescription: string,
+  qboAmount: number,
+  qboDate: Date,
+  qboDescription: string
+): { confidence: number; matchType: MatchType; reasoning: string } {
+  const amountDiff = Math.abs(bankAmount - qboAmount)
+  const baseAmount = Math.abs(qboAmount)
+  const percentDiff = baseAmount > 0 ? (amountDiff / baseAmount) * 100 : 100
+
+  const daysDiff = Math.abs(
+    Math.floor((bankDate.getTime() - qboDate.getTime()) / (1000 * 60 * 60 * 24))
+  )
+
+  const descriptionMatch = checkDescriptionMatch(bankDescription, qboDescription)
+
+  // Exact match: Same amount (within $0.01), same date, description matches
+  if (amountDiff <= 0.01 && daysDiff === 0 && descriptionMatch) {
+    return {
+      confidence: 0.99,
+      matchType: 'exact',
+      reasoning: 'Exact amount match on same date with matching vendor name',
+    }
+  }
+
+  // Exact amount but different date (timing difference)
+  if (amountDiff <= 0.01 && daysDiff <= 5 && descriptionMatch) {
+    const confidence = daysDiff <= 2 ? 0.95 : daysDiff <= 3 ? 0.90 : 0.85
+    return {
+      confidence,
+      matchType: 'timing',
+      reasoning: `Exact amount match with ${daysDiff} day${daysDiff !== 1 ? 's' : ''} timing difference`,
+    }
+  }
+
+  // Exact amount but no description match (possible match)
+  if (amountDiff <= 0.01 && daysDiff <= 3) {
+    return {
+      confidence: 0.75,
+      matchType: 'timing',
+      reasoning: 'Exact amount match but vendor name differs - verify manually',
+    }
+  }
+
+  // Fee-adjusted match: Amount differs by typical fee percentage (1-5%)
+  if (percentDiff > 0 && percentDiff <= 5 && daysDiff <= 5 && descriptionMatch) {
+    const feeAmount = amountDiff.toFixed(2)
+    if (percentDiff <= 3) {
+      return {
+        confidence: 0.88,
+        matchType: 'fee_adjusted',
+        reasoning: `Amount differs by $${feeAmount} (${percentDiff.toFixed(1)}%) - likely payment processing fee`,
+      }
+    }
+    return {
+      confidence: 0.78,
+      matchType: 'fee_adjusted',
+      reasoning: `Amount differs by $${feeAmount} (${percentDiff.toFixed(1)}%) - possible fee adjustment`,
+    }
+  }
+
+  // Fixed fee adjustment: Amount differs by $10-50 (common bank fees)
+  if (amountDiff >= 10 && amountDiff <= 50 && daysDiff <= 5 && descriptionMatch) {
+    return {
+      confidence: 0.82,
+      matchType: 'fee_adjusted',
+      reasoning: `Amount differs by $${amountDiff.toFixed(2)} - possible bank fee`,
+    }
+  }
+
+  // Partial match: Same vendor, close date, but significant amount difference
+  if (descriptionMatch && daysDiff <= 7 && percentDiff <= 20) {
+    return {
+      confidence: 0.60,
+      matchType: 'partial',
+      reasoning: `Matching vendor with ${percentDiff.toFixed(1)}% amount difference - review carefully`,
+    }
+  }
+
+  // Weak match: Only date and general amount range match
+  if (daysDiff <= 3 && percentDiff <= 10) {
+    return {
+      confidence: 0.55,
+      matchType: 'partial',
+      reasoning: 'Similar amount and date but vendor name does not match - low confidence',
+    }
+  }
+
+  // No match
+  return {
+    confidence: 0,
+    matchType: 'partial',
+    reasoning: 'No match found',
+  }
+}
+
+/**
+ * Check if bank description contains vendor name or related keywords
+ * Bank descriptions are often abbreviated or formatted differently
+ */
+function checkDescriptionMatch(bankDescription: string, qboDescription: string): boolean {
+  const bankLower = bankDescription.toLowerCase()
+  const qboLower = qboDescription.toLowerCase()
+
+  // Direct match check
+  if (bankLower.includes(qboLower) || qboLower.includes(bankLower)) {
+    return true
+  }
+
+  // Extract vendor name from QBO description (often in format "Vendor Name - memo")
+  const vendorName = qboLower.split(' - ')[0].trim()
+
+  // Check for vendor name in bank description
+  if (vendorName.length >= 4 && bankLower.includes(vendorName)) {
+    return true
+  }
+
+  // Check for partial matches (first word of vendor name)
+  const vendorFirstWord = vendorName.split(/\s+/)[0]
+  if (vendorFirstWord.length >= 4 && bankLower.includes(vendorFirstWord)) {
+    return true
+  }
+
+  // Common vendor name abbreviations/variations
+  const vendorMappings: Record<string, string[]> = {
+    'amazon web services': ['aws', 'amazon'],
+    'google cloud platform': ['google', 'gcp'],
+    'slack technologies': ['slack'],
+    'zoom video communications': ['zoom'],
+    'adobe systems': ['adobe'],
+    'microsoft': ['msft', 'microsoft'],
+    'salesforce': ['sfdc', 'salesforce'],
+    'hubspot': ['hubspot'],
+    'mailchimp': ['mailchimp', 'intuit'],
+    'office depot': ['office depot', 'od'],
+    'staples': ['staples'],
+    'fedex': ['fedex', 'fed ex'],
+    'ups': ['ups', 'united parcel'],
+    'comcast business': ['comcast'],
+    'pg&e': ['pge', 'pg&e', 'pacific gas'],
+    'wework': ['wework'],
+    'regus': ['regus'],
+    'delta airlines': ['delta'],
+    'united airlines': ['united'],
+    'marriott hotels': ['marriott'],
+    'uber': ['uber'],
+    'lyft': ['lyft'],
+    'blue cross blue shield': ['bcbs', 'blue cross', 'anthem'],
+    'hartford insurance': ['hartford'],
+    'gusto': ['gusto'],
+    'stripe': ['stripe'],
+  }
+
+  const aliases = vendorMappings[vendorName]
+  if (aliases) {
+    return aliases.some(alias => bankLower.includes(alias))
+  }
+
+  // Check for any significant word overlap (at least 4 characters)
+  const vendorWords = vendorName.split(/\s+/).filter(w => w.length >= 4)
+  const bankWords = bankLower.split(/\s+/).filter(w => w.length >= 4)
+
+  for (const vendorWord of vendorWords) {
+    for (const bankWord of bankWords) {
+      if (vendorWord === bankWord ||
+          vendorWord.includes(bankWord) ||
+          bankWord.includes(vendorWord)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
