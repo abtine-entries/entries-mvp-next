@@ -8,7 +8,16 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { TransactionRow } from './transaction-row'
 import { Transaction } from '@/generated/prisma/client'
-import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, rejectMatchSuggestion, MatchSuggestion } from './actions'
+import { getMatchSuggestionsForTransaction, approveMatch, createManualMatch, rejectMatchSuggestion, getHighConfidenceMatches, bulkApproveHighConfidenceMatches, MatchSuggestion, HighConfidenceMatch } from './actions'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface ReconciliationPanelsProps {
@@ -36,6 +45,12 @@ export function ReconciliationPanels({
   // Bulk selection state
   const [checkedBankTxnIds, setCheckedBankTxnIds] = useState<Set<string>>(new Set())
   const [checkedQboTxnIds, setCheckedQboTxnIds] = useState<Set<string>>(new Set())
+
+  // Bulk approve state
+  const [showBulkApproveModal, setShowBulkApproveModal] = useState(false)
+  const [highConfidenceMatches, setHighConfidenceMatches] = useState<HighConfidenceMatch[]>([])
+  const [isLoadingHighConfidence, setIsLoadingHighConfidence] = useState(false)
+  const [isBulkApproving, setIsBulkApproving] = useState(false)
 
   // Get suggestion for a specific QBO transaction (excluding rejected ones)
   const getSuggestionForQbo = (qboTxnId: string): MatchSuggestion | undefined => {
@@ -253,6 +268,55 @@ export function ReconciliationPanels({
     }
   }
 
+  // Handler for opening bulk approve modal
+  const handleOpenBulkApproveModal = async () => {
+    setIsLoadingHighConfidence(true)
+    setShowBulkApproveModal(true)
+    try {
+      const matches = await getHighConfidenceMatches(bankTransactions, qboTransactions)
+      setHighConfidenceMatches(matches)
+    } catch (error) {
+      console.error('Failed to get high-confidence matches:', error)
+      toast.error('Failed to analyze transactions')
+      setShowBulkApproveModal(false)
+    } finally {
+      setIsLoadingHighConfidence(false)
+    }
+  }
+
+  // Handler for bulk approving matches
+  const handleBulkApprove = async () => {
+    if (highConfidenceMatches.length === 0) return
+
+    setIsBulkApproving(true)
+    try {
+      const result = await bulkApproveHighConfidenceMatches(workspaceId, highConfidenceMatches)
+
+      if (result.success) {
+        if (result.approvedCount > 0) {
+          toast.success(`Successfully approved ${result.approvedCount} match${result.approvedCount !== 1 ? 'es' : ''}${result.failedCount > 0 ? ` (${result.failedCount} failed)` : ''}`)
+        } else {
+          toast.info('No matches were approved')
+        }
+        setShowBulkApproveModal(false)
+        setHighConfidenceMatches([])
+        // Reset selection states
+        setSelectedBankTxnId(null)
+        setHighlightedSuggestionId(null)
+        setMatchSuggestions([])
+        // Refresh the page to get updated data
+        router.refresh()
+      } else {
+        toast.error(result.error || 'Failed to approve matches')
+      }
+    } catch (error) {
+      console.error('Failed to bulk approve matches:', error)
+      toast.error('Failed to approve matches. Please try again.')
+    } finally {
+      setIsBulkApproving(false)
+    }
+  }
+
   // Show manual match action bar when both bank and QBO transactions are selected
   const showManualMatchBar = selectedBankTxnId && selectedQboTxnId
 
@@ -282,6 +346,81 @@ export function ReconciliationPanels({
           <span>Shift+click a QBO transaction to create a manual match</span>
         </div>
       )}
+
+      {/* Bulk Actions Bar */}
+      <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+        <div className="text-sm text-muted-foreground">
+          {bankTransactions.length} bank / {qboTransactions.length} QBO transactions pending reconciliation
+        </div>
+        <Button
+          onClick={handleOpenBulkApproveModal}
+          variant="outline"
+          className="gap-2"
+        >
+          <CheckCircle className="h-4 w-4" />
+          Approve All High-Confidence
+        </Button>
+      </div>
+
+      {/* Bulk Approve Confirmation Modal */}
+      <Dialog open={showBulkApproveModal} onOpenChange={setShowBulkApproveModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve High-Confidence Matches</DialogTitle>
+            <DialogDescription>
+              {isLoadingHighConfidence ? (
+                'Analyzing transactions for high-confidence matches...'
+              ) : highConfidenceMatches.length === 0 ? (
+                'No high-confidence matches (confidence > 90%) found.'
+              ) : (
+                `Found ${highConfidenceMatches.length} high-confidence match${highConfidenceMatches.length !== 1 ? 'es' : ''} (confidence > 90%). Do you want to approve all of them?`
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {!isLoadingHighConfidence && highConfidenceMatches.length > 0 && (
+            <div className="max-h-64 overflow-y-auto space-y-2 py-2">
+              {highConfidenceMatches.map((match, index) => {
+                const bankTxn = bankTransactions.find(t => t.id === match.bankTxnId)
+                const qboTxn = qboTransactions.find(t => t.id === match.qboTxnId)
+                return (
+                  <div key={index} className="text-sm border rounded-md p-2 bg-muted/30">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate" title={bankTxn?.description}>
+                          {bankTxn?.description}
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          ↔ {qboTxn?.description}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                          {Math.round(match.confidence * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkApproveModal(false)}
+              disabled={isBulkApproving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkApprove}
+              disabled={isLoadingHighConfidence || highConfidenceMatches.length === 0 || isBulkApproving}
+            >
+              {isBulkApproving ? 'Approving...' : `Approve ${highConfidenceMatches.length} Match${highConfidenceMatches.length !== 1 ? 'es' : ''}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 gap-4 h-[calc(100vh-250px)]">
       {/* Bank Transactions Panel */}
