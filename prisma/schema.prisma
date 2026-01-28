@@ -38,6 +38,7 @@ model Workspace {
   rules        Rule[]
   anomalies    Anomaly[]
   auditLogs    AuditLog[]
+  events       Event[]
 }
 
 model Category {
@@ -138,4 +139,16 @@ model AuditLog {
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
   user        User      @relation(fields: [userId], references: [id])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  workspaceId String
+  entityType  String   // transaction, match, anomaly, rule, sync, ai_action
+  entityId    String
+  title       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }

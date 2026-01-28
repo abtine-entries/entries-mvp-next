@@ -61,6 +61,7 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // Clean up existing data
+  await prisma.event.deleteMany()
   await prisma.auditLog.deleteMany()
   await prisma.anomaly.deleteMany()
   await prisma.match.deleteMany()
@@ -78,7 +79,7 @@ async function main() {
       email: 'test@example.com',
       name: 'Test User',
       // Password hash for "password123" (bcrypt with 10 rounds)
-      passwordHash: '$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu/1u',
+      passwordHash: '$2b$10$wXTHmCjeCqbEKV70OQ32cOmh5IwFY1IW0hJ.Cx8dPYb7cbDw7gU62',
     },
   })
 
@@ -232,6 +233,26 @@ async function main() {
     console.log(`✅ Created 50+ transactions for ${ws.name}`)
   }
 
+  // Create Event records for all transactions
+  for (const ws of [workspace1, workspace2]) {
+    const transactions = await prisma.transaction.findMany({
+      where: { workspaceId: ws.id },
+    })
+
+    for (const txn of transactions) {
+      await prisma.event.create({
+        data: {
+          workspaceId: ws.id,
+          entityType: 'transaction',
+          entityId: txn.id,
+          title: txn.description,
+        },
+      })
+    }
+
+    console.log(`✅ Created ${transactions.length} events for ${ws.name}`)
+  }
+
   // Create 5 anomalies of different types for workspace1
   const anomalyTypes: Array<{
     type: string
@@ -300,6 +321,7 @@ async function main() {
   const transactionCount = await prisma.transaction.count()
   const matchCount = await prisma.match.count()
   const anomalyCount = await prisma.anomaly.count()
+  const eventCount = await prisma.event.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
@@ -308,6 +330,7 @@ async function main() {
   console.log(`   Transactions: ${transactionCount}`)
   console.log(`   Matches: ${matchCount}`)
   console.log(`   Anomalies: ${anomalyCount}`)
+  console.log(`   Events: ${eventCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 
