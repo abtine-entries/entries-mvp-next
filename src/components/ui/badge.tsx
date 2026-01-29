@@ -18,7 +18,7 @@ const badgeVariants = cva(
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "border-transparent [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "border-transparent text-primary underline-offset-4 [a&]:hover:underline",
-        // Semantic variants
+        // Custom: semantic color variants for Entries
         success: "bg-success/20 text-success border-success/30",
         warning: "bg-warning/20 text-warning border-warning/30",
         error: "bg-error/20 text-error border-error/30",
