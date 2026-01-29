@@ -1,8 +1,14 @@
-'use client'
-
+import React from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  Breadcrumb as ShadcnBreadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem as ShadcnBreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 
 export interface BreadcrumbItem {
   label: string
@@ -17,40 +23,41 @@ interface BreadcrumbProps {
 
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className={cn('flex items-center gap-1 text-sm', className)}
-    >
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1
+    <ShadcnBreadcrumb className={className}>
+      <BreadcrumbList>
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1
 
-        return (
-          <div key={index} className="flex items-center gap-1">
-            {index > 0 && (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            )}
-            {item.href && !isLast ? (
-              <Link
-                href={item.href}
-                className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            ) : (
-              <span
-                className={cn(
-                  'flex items-center gap-1.5',
-                  isLast ? 'text-foreground font-medium' : 'text-muted-foreground'
+          return (
+            <React.Fragment key={index}>
+              <ShadcnBreadcrumbItem>
+                {item.href && !isLast ? (
+                  <BreadcrumbLink asChild>
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-1.5"
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Link>
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage
+                    className={cn(
+                      'flex items-center gap-1.5',
+                      isLast ? 'font-medium' : ''
+                    )}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </BreadcrumbPage>
                 )}
-              >
-                {item.icon}
-                {item.label}
-              </span>
-            )}
-          </div>
-        )
-      })}
-    </nav>
+              </ShadcnBreadcrumbItem>
+              {!isLast && <BreadcrumbSeparator />}
+            </React.Fragment>
+          )
+        })}
+      </BreadcrumbList>
+    </ShadcnBreadcrumb>
   )
 }
