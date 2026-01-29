@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Building2,
   Check,
@@ -39,6 +40,12 @@ const connectedApps: {
     connector: 'chase',
     accountName: 'Chase Business ****4521',
   },
+  {
+    id: 'wise',
+    name: 'Wise',
+    connector: 'wise',
+    accountName: 'Wise Business ****7832',
+  },
 ]
 
 // Mock available connectors (ConnectorType items)
@@ -56,6 +63,10 @@ const availableConnectors: {
   { id: 'bill', name: 'Bill.com', connector: 'bill' },
   { id: 'hubspot', name: 'HubSpot', connector: 'hubspot', beta: true },
   { id: 'salesforce', name: 'Salesforce', connector: 'salesforce' },
+  { id: 'slack', name: 'Slack', connector: 'slack' },
+  { id: 'whatsapp', name: 'WhatsApp', connector: 'whatsapp', beta: true },
+  { id: 'gmail', name: 'Gmail', connector: 'gmail' },
+  { id: 'google_drive', name: 'Google Drive', connector: 'google_drive' },
 ]
 
 export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
@@ -119,31 +130,35 @@ export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
             </div>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
               {/* Connect Bank Feed — special entry */}
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/50 transition-colors">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white shrink-0">
-                  <Landmark className="h-4 w-4" />
-                </div>
-                <span className="text-sm font-medium flex-1">Connect Bank Feed</span>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground shrink-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {availableConnectors.map((connector) => (
-                <div
-                  key={connector.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/50 transition-colors"
-                >
-                  <ConnectorLogo connector={connector.connector} size="md" />
-                  <span className="text-sm font-medium flex-1">{connector.name}</span>
-                  {connector.beta && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-blue-400 border-blue-400/40">
-                      Beta
-                    </Badge>
-                  )}
+              <Card className="flex-row items-center gap-3 py-3 px-4 hover:border-primary/50 transition-colors">
+                <CardContent className="flex items-center gap-3 p-0 flex-1">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white shrink-0">
+                    <Landmark className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium flex-1">Connect Bank Feed</span>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground shrink-0">
                     <Plus className="h-4 w-4" />
                   </Button>
-                </div>
+                </CardContent>
+              </Card>
+              {availableConnectors.map((connector) => (
+                <Card
+                  key={connector.id}
+                  className="flex-row items-center gap-3 py-3 px-4 hover:border-primary/50 transition-colors"
+                >
+                  <CardContent className="flex items-center gap-3 p-0 flex-1">
+                    <ConnectorLogo connector={connector.connector} size="md" />
+                    <span className="text-sm font-medium flex-1">{connector.name}</span>
+                    {connector.beta && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-blue-400 border-blue-400/40">
+                        Beta
+                      </Badge>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground shrink-0">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </section>
