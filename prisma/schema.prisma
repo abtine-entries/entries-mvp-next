@@ -18,9 +18,11 @@ model User {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  workspaces   Workspace[]
-  auditLogs    AuditLog[]
-  eventNotes   EventNote[]
+  workspaces     Workspace[]
+  auditLogs      AuditLog[]
+  eventNotes     EventNote[]
+  resolvedAlerts Alert[]     @relation("AlertResolvedBy")
+  assignedAlerts Alert[]     @relation("AlertAssignedTo")
 }
 
 model Workspace {
@@ -41,6 +43,7 @@ model Workspace {
   auditLogs              AuditLog[]
   events                 Event[]
   propertyDefinitions    EventPropertyDefinition[]
+  alerts                 Alert[]
 }
 
 model Category {
@@ -193,4 +196,29 @@ model EventNote {
 
   event      Event    @relation(fields: [eventId], references: [id])
   author     User?    @relation(fields: [authorId], references: [id])
+}
+
+model Alert {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  type            String    // 'anomaly' | 'ai_question' | 'system' | 'insight'
+  priority        String    // 'requires_action' | 'fyi'
+  status          String    @default("active") // 'active' | 'snoozed' | 'resolved'
+  title           String
+  body            String
+  entityType      String?   // nullable
+  entityId        String?   // nullable
+  responseType    String?   // nullable, 'confirm' | 'select' | 'text' | 'none'
+  responseOptions String?   // nullable, JSON string for select options
+  responseValue   String?   // nullable
+  resolvedAt      DateTime? // nullable
+  resolvedById    String?   // nullable
+  snoozedUntil    DateTime? // nullable
+  assignedToId    String?   // nullable
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id])
+  resolvedBy User?     @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
+  assignedTo User?     @relation("AlertAssignedTo", fields: [assignedToId], references: [id])
 }

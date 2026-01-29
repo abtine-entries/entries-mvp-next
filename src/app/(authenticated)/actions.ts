@@ -10,6 +10,7 @@ export type WorkspaceWithCounts = {
   name: string
   lastSyncAt: Date | null
   pendingCount: number
+  newEventCount: number
   connectors: ConnectorType[]
 }
 
@@ -42,6 +43,14 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
         where: { status: 'pending' },
         select: { id: true },
       },
+      events: {
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        },
+        select: { id: true },
+      },
     },
   })
 
@@ -55,6 +64,7 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
       name: workspace.name,
       lastSyncAt: workspace.lastSyncAt,
       pendingCount: workspace.transactions.length,
+      newEventCount: workspace.events.length,
       connectors,
     }
   })
