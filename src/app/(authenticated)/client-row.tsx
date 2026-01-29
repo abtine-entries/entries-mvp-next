@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
+import { Badge } from '@/components/ui/badge'
 import type { WorkspaceWithCounts } from './actions'
 
 export function ClientRow({
@@ -7,7 +8,7 @@ export function ClientRow({
 }: {
   workspace: WorkspaceWithCounts
 }) {
-  const hasNotifications = workspace.pendingCount > 0
+  const hasNewEvents = workspace.newEventCount > 0
 
   return (
     <Link
@@ -16,22 +17,23 @@ export function ClientRow({
     >
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">{workspace.name}</span>
-        {hasNotifications && (
-          <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-full">
-            {workspace.pendingCount}
-          </span>
+        {hasNewEvents && (
+          <Badge className="rounded-full min-w-[20px] h-5 px-1.5 text-[11px]">
+            {workspace.newEventCount}
+          </Badge>
         )}
       </div>
 
       {/* Connected app logos */}
       {workspace.connectors && workspace.connectors.length > 0 && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center -space-x-2">
           {workspace.connectors.map((connector) => (
-            <ConnectorLogo
-              key={connector}
-              connector={connector}
-              size="sm"
-            />
+            <div key={connector} className="ring-2 ring-card rounded-full">
+              <ConnectorLogo
+                connector={connector}
+                size="md"
+              />
+            </div>
           ))}
         </div>
       )}
