@@ -9,6 +9,7 @@ import { DismissButton } from './dismiss-button'
 import { ConfirmResponse } from './confirm-response'
 import { SelectResponse } from './select-response'
 import { TextResponse } from './text-response'
+import { SnoozePopover } from './snooze-popover'
 
 interface AlertsPageProps {
   params: Promise<{ id: string }>
@@ -135,6 +136,7 @@ export default async function AlertsPage({ params }: AlertsPageProps) {
                         <span className="text-xs text-muted-foreground ml-auto shrink-0">
                           {getRelativeTime(alert.createdAt)}
                         </span>
+                        <SnoozePopover alertId={alert.id} workspaceId={workspace.id} />
                         <DismissButton alertId={alert.id} workspaceId={workspace.id} />
                       </div>
                       <h3 className="text-sm font-medium leading-snug">
