@@ -80,6 +80,37 @@ export async function snoozeAlert(
   }
 }
 
+export async function assignAlert(
+  alertId: string,
+  workspaceId: string,
+  userId: string
+): Promise<AlertActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const alert = await prisma.alert.findFirst({
+      where: { id: alertId, workspaceId },
+    })
+    if (!alert) {
+      return { success: false, error: 'Alert not found' }
+    }
+
+    await prisma.alert.update({
+      where: { id: alertId },
+      data: { assignedToId: userId },
+    })
+
+    revalidatePath(`/workspace/${workspaceId}/alerts`)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to assign alert:', error)
+    return { success: false, error: 'Failed to assign alert' }
+  }
+}
+
 export async function resolveAlert(
   alertId: string,
   workspaceId: string,

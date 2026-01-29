@@ -10,6 +10,7 @@ import { ConfirmResponse } from './confirm-response'
 import { SelectResponse } from './select-response'
 import { TextResponse } from './text-response'
 import { SnoozePopover } from './snooze-popover'
+import { AssignPopover } from './assign-popover'
 
 interface AlertsPageProps {
   params: Promise<{ id: string }>
@@ -58,19 +59,27 @@ export default async function AlertsPage({ params }: AlertsPageProps) {
   const now = new Date()
 
   // Fetch active alerts: status='active' OR (status='snoozed' AND snoozedUntil <= now)
-  const alerts = await prisma.alert.findMany({
-    where: {
-      workspaceId: id,
-      OR: [
-        { status: 'active' },
-        { status: 'snoozed', snoozedUntil: { lte: now } },
+  const [alerts, users] = await Promise.all([
+    prisma.alert.findMany({
+      where: {
+        workspaceId: id,
+        OR: [
+          { status: 'active' },
+          { status: 'snoozed', snoozedUntil: { lte: now } },
+        ],
+      },
+      include: {
+        assignedTo: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: [
+        { priority: 'asc' }, // 'requires_action' sorts before 'fyi' alphabetically
+        { createdAt: 'desc' },
       ],
-    },
-    orderBy: [
-      { priority: 'asc' }, // 'requires_action' sorts before 'fyi' alphabetically
-      { createdAt: 'desc' },
-    ],
-  })
+    }),
+    prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+    }),
+  ])
 
   // Sort: requires_action first, then fyi, then by createdAt desc
   const sortedAlerts = alerts.sort((a, b) => {
@@ -136,12 +145,20 @@ export default async function AlertsPage({ params }: AlertsPageProps) {
                         <span className="text-xs text-muted-foreground ml-auto shrink-0">
                           {getRelativeTime(alert.createdAt)}
                         </span>
+                        <AssignPopover alertId={alert.id} workspaceId={workspace.id} users={users} />
                         <SnoozePopover alertId={alert.id} workspaceId={workspace.id} />
                         <DismissButton alertId={alert.id} workspaceId={workspace.id} />
                       </div>
-                      <h3 className="text-sm font-medium leading-snug">
-                        {alert.title}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium leading-snug">
+                          {alert.title}
+                        </h3>
+                        {alert.assignedTo && (
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            {alert.assignedTo.name ?? alert.assignedTo.email}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {alert.body}
                       </p>
