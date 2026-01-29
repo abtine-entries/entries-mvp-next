@@ -113,3 +113,84 @@ export async function createAIQuestionAlert(
     },
   })
 }
+
+type SystemEventType =
+  | 'sync_completed'
+  | 'sync_failed'
+  | 'transactions_imported'
+  | 'connector_disconnected'
+
+interface SystemAlertDetails {
+  connectorName?: string
+  transactionCount?: number
+  errorMessage?: string
+}
+
+function getSystemAlertTitle(
+  eventType: SystemEventType,
+  details: SystemAlertDetails
+): string {
+  const connector = details.connectorName ?? 'Unknown connector'
+  switch (eventType) {
+    case 'sync_completed':
+      return `${connector} sync completed`
+    case 'sync_failed':
+      return `Sync failed: ${connector}`
+    case 'transactions_imported':
+      return `${details.transactionCount ?? 0} transactions imported`
+    case 'connector_disconnected':
+      return `${connector} connector disconnected`
+  }
+}
+
+function getSystemAlertBody(
+  eventType: SystemEventType,
+  details: SystemAlertDetails
+): string {
+  const connector = details.connectorName ?? 'Unknown connector'
+  switch (eventType) {
+    case 'sync_completed': {
+      const count = details.transactionCount
+      return count != null
+        ? `${connector} sync completed successfully. ${count} transactions synced.`
+        : `${connector} sync completed successfully.`
+    }
+    case 'sync_failed':
+      return details.errorMessage
+        ? `${connector} sync failed: ${details.errorMessage}`
+        : `${connector} sync failed. Please check the connection and try again.`
+    case 'transactions_imported':
+      return `${details.transactionCount ?? 0} new transactions imported from ${connector}.`
+    case 'connector_disconnected':
+      return `The ${connector} connector has been disconnected. Reconnect to resume syncing.`
+  }
+}
+
+/**
+ * Create an alert from a system event (sync completions, failures, imports, disconnections).
+ * Priority: sync_failed and connector_disconnected → requires_action;
+ * sync_completed and transactions_imported → fyi.
+ */
+export async function createSystemAlert(
+  workspaceId: string,
+  eventType: SystemEventType,
+  details: SystemAlertDetails = {}
+) {
+  const priority: 'requires_action' | 'fyi' =
+    eventType === 'sync_failed' || eventType === 'connector_disconnected'
+      ? 'requires_action'
+      : 'fyi'
+
+  const title = getSystemAlertTitle(eventType, details)
+  const body = getSystemAlertBody(eventType, details)
+
+  return prisma.alert.create({
+    data: {
+      workspaceId,
+      type: 'system',
+      priority,
+      title,
+      body,
+    },
+  })
+}
