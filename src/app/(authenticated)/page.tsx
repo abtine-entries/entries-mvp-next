@@ -1,12 +1,13 @@
 import { Suspense } from 'react'
-import { getWorkspaces, getRecentActivity } from './actions'
+import { getWorkspaces, getRecentActivity, getGlobalAlertsSummary } from './actions'
 import { ClientRow } from './client-row'
 import { WorkspaceListSkeleton } from './workspace-list-skeleton'
 import { CreateWorkspaceModal } from './create-workspace-modal'
 import { PageHeader } from '@/components/layout'
 import { HomeGreeting } from './home-greeting'
 import { RecentActivityFeed } from './recent-activity-feed'
-import { Home, Plus, Building2, Activity } from 'lucide-react'
+import { AlertsSummary } from './alerts-summary'
+import { Home, Plus, Building2, Activity, Bell } from 'lucide-react'
 import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
 
@@ -32,6 +33,11 @@ async function ClientList() {
   )
 }
 
+async function AlertsBriefing() {
+  const workspaces = await getGlobalAlertsSummary()
+  return <AlertsSummary workspaces={workspaces} />
+}
+
 async function RecentActivity() {
   const events = await getRecentActivity()
   return <RecentActivityFeed events={events} />
@@ -46,10 +52,21 @@ export default function HomePage() {
           { label: 'Home', icon: <Home className="h-4 w-4" /> },
         ]}
       />
-      <div className="flex-1 p-6 overflow-auto">
+      <div className="flex-1 px-10 py-6 overflow-auto">
         <div className="space-y-10">
           {/* Greeting */}
           <HomeGreeting />
+
+          {/* Alerts Briefing */}
+          <section>
+            <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-4">
+              <Bell className="h-4 w-4" />
+              Alerts
+            </p>
+            <Suspense fallback={<div className="bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm">Loading alerts...</div>}>
+              <AlertsBriefing />
+            </Suspense>
+          </section>
 
           {/* Clients Section */}
           <section>
