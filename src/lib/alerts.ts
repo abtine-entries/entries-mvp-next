@@ -75,3 +75,41 @@ export async function createAnomalyAlert(
     },
   })
 }
+
+type AIQuestionResponseType = 'confirm' | 'select' | 'text'
+
+interface AIQuestionAlertData {
+  title: string
+  body: string
+  responseType: AIQuestionResponseType
+  responseOptions?: string[]
+  entityType?: string | null
+  entityId?: string | null
+}
+
+/**
+ * Create an alert when the AI has a question for the accountant.
+ * AI questions always have priority 'requires_action' because the AI is blocked
+ * until the accountant responds.
+ */
+export async function createAIQuestionAlert(
+  workspaceId: string,
+  data: AIQuestionAlertData
+) {
+  return prisma.alert.create({
+    data: {
+      workspaceId,
+      type: 'ai_question',
+      priority: 'requires_action',
+      title: data.title,
+      body: data.body,
+      responseType: data.responseType,
+      responseOptions:
+        data.responseType === 'select' && data.responseOptions
+          ? JSON.stringify(data.responseOptions)
+          : null,
+      entityType: data.entityType ?? null,
+      entityId: data.entityId ?? null,
+    },
+  })
+}
