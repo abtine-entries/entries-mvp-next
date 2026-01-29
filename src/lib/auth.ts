@@ -35,25 +35,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
-        // Capture previous login timestamp before updating
-        const previousLoginAt = user.lastLoginAt ? user.lastLoginAt.toISOString() : null
-
-        // Update lastLoginAt to now (non-blocking — don't let this crash login)
-        try {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { lastLoginAt: new Date() },
-          })
-        } catch (e) {
-          console.error('Failed to update lastLoginAt:', e)
-        }
-
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          lastLoginAt: previousLoginAt,
-        } as { id: string; email: string; name: string | null; lastLoginAt: string | null }
+        }
       },
     }),
   ],

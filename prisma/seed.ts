@@ -61,6 +61,7 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // Clean up existing data
+  await prisma.alert.deleteMany()
   await prisma.event.deleteMany()
   await prisma.auditLog.deleteMany()
   await prisma.anomaly.deleteMany()
@@ -314,6 +315,271 @@ async function main() {
 
   console.log('✅ Created 5 anomalies of different types')
 
+  // Create sample alerts across workspaces
+  const anomalies = await prisma.anomaly.findMany({
+    where: { workspaceId: workspace1.id },
+    take: 2,
+  })
+
+  const alertsData = [
+    // --- Workspace 1: Acme Corporation (8 alerts) ---
+    // Anomaly alerts (3)
+    {
+      workspaceId: workspace1.id,
+      type: 'anomaly',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Duplicate transaction detected: $1,500 to Acme Corp',
+      body: 'Two identical payments of $1,500.00 were made to Acme Corp within 24 hours. This may be an accidental duplicate.',
+      entityType: 'anomaly',
+      entityId: anomalies[0]?.id ?? null,
+      responseType: 'confirm',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'anomaly',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Unusual amount: $15,000 payment to new vendor',
+      body: 'A $15,000 payment was made to "GlobalTech Services", a vendor not previously seen in this workspace. The amount is 300% above the average transaction.',
+      entityType: 'anomaly',
+      entityId: anomalies[1]?.id ?? null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'anomaly',
+      priority: 'fyi',
+      status: 'resolved',
+      title: 'Timing mismatch on vendor payment',
+      body: 'Payment to Staples posted 5 days after the expected date based on historical patterns.',
+      entityType: 'transaction',
+      entityId: ws1Transactions[0]?.id ?? null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: 'dismissed',
+      resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      resolvedById: user.id,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // AI question alerts (3)
+    {
+      workspaceId: workspace1.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Confirm categorization: 12 Stripe charges as Payment Processing?',
+      body: 'I found 12 recurring charges from Stripe totaling $847.00. Should these be categorized as "Payment Processing" under Bank Fees?',
+      entityType: null,
+      entityId: null,
+      responseType: 'confirm',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Which category for recurring Adobe subscription?',
+      body: 'Monthly Adobe Creative Cloud charge of $54.99 could be classified under multiple categories. Please select the appropriate one.',
+      entityType: null,
+      entityId: null,
+      responseType: 'select',
+      responseOptions: JSON.stringify(['Software & Subscriptions', 'Office Supplies', 'Professional Services']),
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'What is the purpose of the $2,300 transfer?',
+      body: 'An internal transfer of $2,300 was detected between checking and savings accounts. Please describe the purpose for proper classification.',
+      entityType: 'transaction',
+      entityId: ws1Transactions[2]?.id ?? null,
+      responseType: 'text',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // System alert (1)
+    {
+      workspaceId: workspace1.id,
+      type: 'system',
+      priority: 'fyi',
+      status: 'active',
+      title: 'QuickBooks sync completed: 47 new transactions',
+      body: 'Successfully synced 47 new transactions from QuickBooks Online. 12 were auto-matched, 35 require review.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // Insight alert (1)
+    {
+      workspaceId: workspace1.id,
+      type: 'insight',
+      priority: 'fyi',
+      status: 'active',
+      title: 'Client expenses up 40% vs last month',
+      body: 'Acme Corporation total expenses increased from $12,400 to $17,360 compared to last month. Largest increase in Professional Services (+$3,200) and Office Supplies (+$1,100).',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+
+    // --- Workspace 2: Tech Startup Inc (6 alerts) ---
+    // System alerts (2)
+    {
+      workspaceId: workspace2.id,
+      type: 'system',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Sync failed: QuickBooks connection error',
+      body: 'The scheduled QuickBooks sync failed due to an authentication error. Please reconnect the QuickBooks integration to resume automatic syncing.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace2.id,
+      type: 'system',
+      priority: 'fyi',
+      status: 'resolved',
+      title: 'Chase bank feed connected successfully',
+      body: 'Chase business checking account has been connected. Historical transactions from the last 90 days have been imported.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: 'dismissed',
+      resolvedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      resolvedById: user.id,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // Insight alerts (2)
+    {
+      workspaceId: workspace2.id,
+      type: 'insight',
+      priority: 'fyi',
+      status: 'active',
+      title: 'Payroll costs trending 15% above budget',
+      body: 'Tech Startup Inc payroll expenses for this quarter are tracking 15% above the projected budget. Current run rate: $48,000/month vs budgeted $41,700/month.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace2.id,
+      type: 'insight',
+      priority: 'fyi',
+      status: 'snoozed',
+      title: 'Recurring vendor payments could be consolidated',
+      body: 'Three separate monthly payments to AWS, Google Cloud, and Azure total $2,800/month. Consider consolidating to a single cloud provider for potential savings.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // snoozed for 1 week
+      assignedToId: null,
+    },
+    // Anomaly alert (1)
+    {
+      workspaceId: workspace2.id,
+      type: 'anomaly',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Duplicate subscription charge: Slack',
+      body: 'Two Slack charges of $12.50/user were billed this month (Dec 1 and Dec 15). This may be a billing error from the provider.',
+      entityType: null,
+      entityId: null,
+      responseType: 'confirm',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // AI question alert (1)
+    {
+      workspaceId: workspace2.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'How should contractor payments be classified?',
+      body: 'There are 8 payments totaling $24,000 to individual contractors this month. Should these be categorized as "Professional Services" or "Payroll"?',
+      entityType: null,
+      entityId: null,
+      responseType: 'select',
+      responseOptions: JSON.stringify(['Professional Services', 'Payroll', 'Contractor Payments (new category)']),
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+  ]
+
+  for (const alertData of alertsData) {
+    await prisma.alert.create({ data: alertData })
+  }
+
+  const alertCount = await prisma.alert.count()
+  console.log(`✅ Created ${alertCount} sample alerts across workspaces`)
+
   // Summary
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
@@ -322,6 +588,7 @@ async function main() {
   const matchCount = await prisma.match.count()
   const anomalyCount = await prisma.anomaly.count()
   const eventCount = await prisma.event.count()
+  const finalAlertCount = await prisma.alert.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
@@ -331,6 +598,7 @@ async function main() {
   console.log(`   Matches: ${matchCount}`)
   console.log(`   Anomalies: ${anomalyCount}`)
   console.log(`   Events: ${eventCount}`)
+  console.log(`   Alerts: ${finalAlertCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 
