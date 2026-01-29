@@ -64,6 +64,9 @@ function TypeIcon({ type }: { type: string }) {
 function eventToPayload(event: RecentActivityEvent) {
   return {
     id: event.id,
+    event_id: event.eventId,
+    entity_type: event.entityType,
+    entity_id: event.entityId,
     type: event.type,
     source: event.source,
     source_label: event.sourceLabel,

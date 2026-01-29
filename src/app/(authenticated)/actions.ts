@@ -22,6 +22,9 @@ export type RecentActivityEvent = {
   description: string
   workspaceId: string
   workspaceName: string
+  entityType: string
+  entityId: string
+  eventId: string | null
 }
 
 export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
@@ -136,6 +139,9 @@ export async function getRecentActivity(): Promise<RecentActivityEvent[]> {
         : `${formattedAmount} ${isIncome ? 'deposit' : 'spent at'} ${txn.description}`,
       workspaceId: txn.workspaceId,
       workspaceName: workspaceMap.get(txn.workspaceId) || 'Unknown',
+      entityType: 'transaction',
+      entityId: txn.id,
+      eventId: null,
     })
   }
 
@@ -151,6 +157,9 @@ export async function getRecentActivity(): Promise<RecentActivityEvent[]> {
         description: `Categorized ${log.entityType} as ${log.newValue || 'category'}`,
         workspaceId: log.workspaceId,
         workspaceName: workspaceMap.get(log.workspaceId) || 'Unknown',
+        entityType: log.entityType || 'transaction',
+        entityId: log.entityId,
+        eventId: null,
       })
     }
   }
@@ -166,13 +175,39 @@ export async function getRecentActivity(): Promise<RecentActivityEvent[]> {
       description: `Matched bank transaction to ${match.matchType === 'exact' ? 'exact' : 'similar'} QBO record`,
       workspaceId: match.workspaceId,
       workspaceName: workspaceMap.get(match.workspaceId) || 'Unknown',
+      entityType: 'match',
+      entityId: match.id,
+      eventId: null,
     })
   }
 
   // Sort by date and limit
-  return events
+  const sorted = events
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
     .slice(0, 15)
+
+  // Batch-resolve Event page IDs for the final set
+  const entityKeys = sorted.map((e) => ({ entityType: e.entityType, entityId: e.entityId }))
+  const eventRecords = await prisma.event.findMany({
+    where: {
+      workspaceId: { in: workspaceIds },
+      OR: entityKeys.map((k) => ({
+        entityType: k.entityType,
+        entityId: k.entityId,
+      })),
+    },
+    select: { id: true, entityType: true, entityId: true },
+  })
+
+  const eventMap = new Map(
+    eventRecords.map((e) => [`${e.entityType}:${e.entityId}`, e.id])
+  )
+
+  for (const event of sorted) {
+    event.eventId = eventMap.get(`${event.entityType}:${event.entityId}`) ?? null
+  }
+
+  return sorted
 }
 
 export type CreateWorkspaceResult = {

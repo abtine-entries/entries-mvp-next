@@ -273,7 +273,13 @@ export function RecentActivityFeed({ events }: { events: RecentActivityEvent[] }
             columns={recentActivityColumns}
             data={filtered}
             showHeader={true}
-            getRowHref={(row) => `/workspace/${row.original.workspaceId}/event-feed`}
+            getRowHref={(row) => {
+              const e = row.original
+              if (e.eventId) {
+                return `/workspace/${e.workspaceId}/event/${e.eventId}`
+              }
+              return `/workspace/${e.workspaceId}/event-feed`
+            }}
             className="[&_tr]:border-0"
           />
         )}
