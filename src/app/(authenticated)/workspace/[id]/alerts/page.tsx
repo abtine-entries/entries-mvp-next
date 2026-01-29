@@ -6,6 +6,7 @@ import { org } from '@/lib/config'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { DismissButton } from './dismiss-button'
+import { ConfirmResponse } from './confirm-response'
 
 interface AlertsPageProps {
   params: Promise<{ id: string }>
@@ -140,6 +141,9 @@ export default async function AlertsPage({ params }: AlertsPageProps) {
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {alert.body}
                       </p>
+                      {alert.responseType === 'confirm' && (
+                        <ConfirmResponse alertId={alert.id} workspaceId={workspace.id} />
+                      )}
                     </div>
                   </CardContent>
                 </Card>
