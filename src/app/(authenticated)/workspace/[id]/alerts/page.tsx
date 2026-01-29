@@ -5,6 +5,7 @@ import { Bell, Building2, AlertTriangle, MessageCircleQuestion, RefreshCw, Trend
 import { org } from '@/lib/config'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { DismissButton } from './dismiss-button'
 
 interface AlertsPageProps {
   params: Promise<{ id: string }>
@@ -131,6 +132,7 @@ export default async function AlertsPage({ params }: AlertsPageProps) {
                         <span className="text-xs text-muted-foreground ml-auto shrink-0">
                           {getRelativeTime(alert.createdAt)}
                         </span>
+                        <DismissButton alertId={alert.id} workspaceId={workspace.id} />
                       </div>
                       <h3 className="text-sm font-medium leading-snug">
                         {alert.title}
