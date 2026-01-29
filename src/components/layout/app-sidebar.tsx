@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/sidebar'
 import { SearchModal } from './search-modal'
 import { WorkspaceSwitcher } from './workspace-switcher'
+import { NavUser } from './nav-user'
 
 interface Workspace {
   id: string
@@ -72,11 +73,17 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
   ]
 }
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  workspaces: Workspace[]
+interface UserInfo {
+  name: string | null
+  email: string
 }
 
-export function AppSidebar({ workspaces, ...props }: AppSidebarProps) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  workspaces: Workspace[]
+  user: UserInfo
+}
+
+export function AppSidebar({ workspaces, user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -145,7 +152,9 @@ export function AppSidebar({ workspaces, ...props }: AppSidebarProps) {
             ))}
         </SidebarContent>
 
-        <SidebarFooter />
+        <SidebarFooter>
+          <NavUser user={user} />
+        </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 

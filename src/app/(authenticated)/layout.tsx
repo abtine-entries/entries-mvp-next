@@ -25,8 +25,13 @@ export default async function AuthenticatedLayout({
 
   const workspaces = await getWorkspacesForSidebar(session.user.id!)
 
+  const user = {
+    name: session.user.name ?? null,
+    email: session.user.email!,
+  }
+
   return (
-    <AppShell workspaces={workspaces}>
+    <AppShell workspaces={workspaces} user={user}>
       {children}
     </AppShell>
   )

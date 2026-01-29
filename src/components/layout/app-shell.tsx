@@ -8,15 +8,21 @@ interface Workspace {
   name: string
 }
 
+interface UserInfo {
+  name: string | null
+  email: string
+}
+
 interface AppShellProps {
   children: React.ReactNode
   workspaces: Workspace[]
+  user: UserInfo
 }
 
-export function AppShell({ children, workspaces }: AppShellProps) {
+export function AppShell({ children, workspaces, user }: AppShellProps) {
   return (
     <SidebarProvider>
-      <AppSidebar workspaces={workspaces} />
+      <AppSidebar workspaces={workspaces} user={user} />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   )
