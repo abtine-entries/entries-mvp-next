@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
+import { Card, CardContent } from '@/components/ui/card'
 import { Building2, Tags } from 'lucide-react'
 import { CategorizationTable } from './categorization-table'
 
@@ -134,28 +135,36 @@ export default async function CategorizePage({ params }: CategorizePageProps) {
         <div className="space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">Uncategorized</p>
-              <p className="text-2xl font-semibold">{mockUncategorizedTransactions.length}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">High Confidence</p>
-              <p className="text-2xl font-semibold text-green-400">
-                {mockUncategorizedTransactions.filter((t) => t.confidence >= 0.9).length}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">Needs Review</p>
-              <p className="text-2xl font-semibold text-yellow-400">
-                {mockUncategorizedTransactions.filter((t) => t.confidence > 0 && t.confidence < 0.9).length}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">No Suggestion</p>
-              <p className="text-2xl font-semibold text-red-400">
-                {mockUncategorizedTransactions.filter((t) => t.confidence === 0).length}
-              </p>
-            </div>
+            <Card className="py-4 gap-1">
+              <CardContent className="px-4">
+                <p className="text-sm text-muted-foreground">Uncategorized</p>
+                <p className="text-2xl font-semibold">{mockUncategorizedTransactions.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="py-4 gap-1">
+              <CardContent className="px-4">
+                <p className="text-sm text-muted-foreground">High Confidence</p>
+                <p className="text-2xl font-semibold text-green-400">
+                  {mockUncategorizedTransactions.filter((t) => t.confidence >= 0.9).length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="py-4 gap-1">
+              <CardContent className="px-4">
+                <p className="text-sm text-muted-foreground">Needs Review</p>
+                <p className="text-2xl font-semibold text-yellow-400">
+                  {mockUncategorizedTransactions.filter((t) => t.confidence > 0 && t.confidence < 0.9).length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="py-4 gap-1">
+              <CardContent className="px-4">
+                <p className="text-sm text-muted-foreground">No Suggestion</p>
+                <p className="text-2xl font-semibold text-red-400">
+                  {mockUncategorizedTransactions.filter((t) => t.confidence === 0).length}
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Categorization table */}
