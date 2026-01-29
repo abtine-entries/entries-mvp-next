@@ -263,7 +263,7 @@ export function RecentActivityFeed({ events }: { events: RecentActivityEvent[] }
       </div>
 
       {/* Table card */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-visible">
         {filtered.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground text-sm">
             No activity matches your filters.
@@ -272,7 +272,7 @@ export function RecentActivityFeed({ events }: { events: RecentActivityEvent[] }
           <DataTable
             columns={recentActivityColumns}
             data={filtered}
-            showHeader={false}
+            showHeader={true}
             getRowHref={(row) => `/workspace/${row.original.workspaceId}/event-feed`}
             className="[&_tr]:border-0"
           />
