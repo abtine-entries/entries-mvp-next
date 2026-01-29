@@ -194,3 +194,24 @@ export async function createSystemAlert(
     },
   })
 }
+
+/**
+ * Create an insight alert about spending trends or notable changes.
+ * Insights are always informational (priority 'fyi') and don't require a response.
+ */
+export async function createInsightAlert(
+  workspaceId: string,
+  title: string,
+  body: string
+) {
+  return prisma.alert.create({
+    data: {
+      workspaceId,
+      type: 'insight',
+      priority: 'fyi',
+      title,
+      body,
+      responseType: null,
+    },
+  })
+}
