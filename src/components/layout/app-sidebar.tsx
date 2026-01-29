@@ -6,10 +6,11 @@ import { usePathname } from 'next/navigation'
 import {
   Home,
   Activity,
+  Bell,
   Plug,
   FileText,
   Sparkles,
-  GitCompare,
+
   Tags,
   BookOpen,
   Search,
@@ -20,6 +21,7 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarGroup,
@@ -51,6 +53,7 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
     {
       title: 'Data',
       items: [
+        { label: 'Alerts', href: `/workspace/${workspaceId}/alerts`, icon: Bell },
         { label: 'Event Feed', href: `/workspace/${workspaceId}/event-feed`, icon: Activity },
         { label: 'Data Connectors', href: `/workspace/${workspaceId}/connectors`, icon: Plug },
         { label: 'Docs', href: `/workspace/${workspaceId}/docs`, icon: FileText },
@@ -60,7 +63,7 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
       title: 'Productivity',
       items: [
         { label: 'Entries AI', href: `/workspace/${workspaceId}/ai`, icon: Sparkles },
-        { label: 'Reconcile', href: `/workspace/${workspaceId}/reconcile`, icon: GitCompare },
+
         { label: 'Categorize', href: `/workspace/${workspaceId}/categorize`, icon: Tags },
       ],
     },
@@ -81,15 +84,17 @@ interface UserInfo {
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   workspaces: Workspace[]
   user: UserInfo
+  alertCounts?: Record<string, number>
 }
 
-export function AppSidebar({ workspaces, user, ...props }: AppSidebarProps) {
+export function AppSidebar({ workspaces, user, alertCounts, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Extract workspace ID from URL path
   const currentWorkspaceId = pathname.match(/\/workspace\/([^/]+)/)?.[1] ?? null
   const currentWorkspace = workspaces.find((ws) => ws.id === currentWorkspaceId)
+  const currentAlertCount = currentWorkspaceId ? (alertCounts?.[currentWorkspaceId] ?? 0) : 0
 
   const isActive = (href: string) => pathname === href
 
@@ -133,20 +138,26 @@ export function AppSidebar({ workspaces, user, ...props }: AppSidebarProps) {
               <SidebarGroup key={section.title}>
                 <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
                 <SidebarMenu>
-                  {section.items.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive(item.href)}
-                        tooltip={item.label}
-                      >
-                        <Link href={item.href}>
-                          <item.icon />
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {section.items.map((item) => {
+                    const badgeCount = item.label === 'Alerts' ? currentAlertCount : 0
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive(item.href)}
+                          tooltip={item.label}
+                        >
+                          <Link href={item.href}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {badgeCount > 0 && (
+                          <SidebarMenuBadge>{badgeCount}</SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    )
+                  })}
                 </SidebarMenu>
               </SidebarGroup>
             ))}

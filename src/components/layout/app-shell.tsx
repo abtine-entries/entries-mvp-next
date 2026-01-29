@@ -17,12 +17,13 @@ interface AppShellProps {
   children: React.ReactNode
   workspaces: Workspace[]
   user: UserInfo
+  alertCounts?: Record<string, number>
 }
 
-export function AppShell({ children, workspaces, user }: AppShellProps) {
+export function AppShell({ children, workspaces, user, alertCounts }: AppShellProps) {
   return (
     <SidebarProvider>
-      <AppSidebar workspaces={workspaces} user={user} />
+      <AppSidebar workspaces={workspaces} user={user} alertCounts={alertCounts} />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   )

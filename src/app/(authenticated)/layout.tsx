@@ -12,6 +12,24 @@ async function getWorkspacesForSidebar(userId: string) {
   return workspaces
 }
 
+async function getAlertCountsByWorkspace(workspaceIds: string[]) {
+  if (workspaceIds.length === 0) return {}
+  const alerts = await prisma.alert.groupBy({
+    by: ['workspaceId'],
+    where: {
+      workspaceId: { in: workspaceIds },
+      status: 'active',
+      priority: 'requires_action',
+    },
+    _count: true,
+  })
+  const counts: Record<string, number> = {}
+  for (const row of alerts) {
+    counts[row.workspaceId] = row._count
+  }
+  return counts
+}
+
 export default async function AuthenticatedLayout({
   children,
 }: {
@@ -24,6 +42,7 @@ export default async function AuthenticatedLayout({
   }
 
   const workspaces = await getWorkspacesForSidebar(session.user.id!)
+  const alertCounts = await getAlertCountsByWorkspace(workspaces.map((w) => w.id))
 
   const user = {
     name: session.user.name ?? null,
@@ -31,7 +50,7 @@ export default async function AuthenticatedLayout({
   }
 
   return (
-    <AppShell workspaces={workspaces} user={user}>
+    <AppShell workspaces={workspaces} user={user} alertCounts={alertCounts}>
       {children}
     </AppShell>
   )
