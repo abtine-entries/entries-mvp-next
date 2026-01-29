@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { DismissButton } from './dismiss-button'
 import { ConfirmResponse } from './confirm-response'
 import { SelectResponse } from './select-response'
+import { TextResponse } from './text-response'
 
 interface AlertsPageProps {
   params: Promise<{ id: string }>
@@ -151,6 +152,9 @@ export default async function AlertsPage({ params }: AlertsPageProps) {
                           workspaceId={workspace.id}
                           responseOptions={alert.responseOptions}
                         />
+                      )}
+                      {alert.responseType === 'text' && (
+                        <TextResponse alertId={alert.id} workspaceId={workspace.id} />
                       )}
                     </div>
                   </CardContent>
