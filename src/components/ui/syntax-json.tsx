@@ -1,5 +1,7 @@
 'use client'
 
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+
 export function SyntaxJson({ data }: { data: Record<string, unknown> }) {
   const json = JSON.stringify(data, null, 2)
 
@@ -19,9 +21,12 @@ export function SyntaxJson({ data }: { data: Record<string, unknown> }) {
   )
 
   return (
-    <pre
-      className="text-[11px] leading-relaxed font-mono text-zinc-300 whitespace-pre-wrap break-all"
-      dangerouslySetInnerHTML={{ __html: highlighted }}
-    />
+    <ScrollArea className="w-full">
+      <pre
+        className="text-[11px] leading-relaxed font-mono text-zinc-300 whitespace-pre-wrap break-all"
+        dangerouslySetInnerHTML={{ __html: highlighted }}
+      />
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   )
 }
