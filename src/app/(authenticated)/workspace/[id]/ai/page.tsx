@@ -1,9 +1,9 @@
-import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Sparkles } from 'lucide-react'
 import { EntriesAIChat } from './entries-ai-chat'
+import { org } from '@/lib/config'
 
 interface AIPageProps {
   params: Promise<{ id: string }>
@@ -25,7 +25,7 @@ export default async function AIPage({ params }: AIPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
           { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
           { label: 'Entries AI', icon: <Sparkles className="h-4 w-4" /> },
         ]}

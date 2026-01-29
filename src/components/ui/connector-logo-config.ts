@@ -2,7 +2,6 @@ export type ConnectorType =
   | 'quickbooks'
   | 'xero'
   | 'stripe'
-  | 'plaid'
   | 'chase'
   | 'bankofamerica'
   | 'wells_fargo'
@@ -11,6 +10,11 @@ export type ConnectorType =
   | 'ramp'
   | 'gusto'
   | 'adp'
+  | 'square'
+  | 'shopify'
+  | 'bill'
+  | 'hubspot'
+  | 'salesforce'
 
 export interface ConnectorConfig {
   domain: string
@@ -24,6 +28,7 @@ export const connectorConfig: Record<ConnectorType, ConnectorConfig> = {
     domain: 'quickbooks.intuit.com',
     initials: 'QB',
     color: '#2CA01C',
+    staticLogo: '/qbo-icon.png',
   },
   xero: {
     domain: 'xero.com',
@@ -34,11 +39,6 @@ export const connectorConfig: Record<ConnectorType, ConnectorConfig> = {
     domain: 'stripe.com',
     initials: 'ST',
     color: '#635BFF',
-  },
-  plaid: {
-    domain: 'plaid.com',
-    initials: 'PL',
-    color: '#000000',
   },
   chase: {
     domain: 'chase.com',
@@ -79,6 +79,31 @@ export const connectorConfig: Record<ConnectorType, ConnectorConfig> = {
     domain: 'adp.com',
     initials: 'AP',
     color: '#D0271D',
+  },
+  square: {
+    domain: 'squareup.com',
+    initials: 'SQ',
+    color: '#006AFF',
+  },
+  shopify: {
+    domain: 'shopify.com',
+    initials: 'SH',
+    color: '#96BF48',
+  },
+  bill: {
+    domain: 'bill.com',
+    initials: 'BL',
+    color: '#00C4B3',
+  },
+  hubspot: {
+    domain: 'hubspot.com',
+    initials: 'HS',
+    color: '#FF7A59',
+  },
+  salesforce: {
+    domain: 'salesforce.com',
+    initials: 'SF',
+    color: '#00A1E0',
   },
 }
 

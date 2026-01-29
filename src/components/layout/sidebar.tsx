@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import Image from 'next/image'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -23,6 +23,7 @@ import {
   PanelLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -120,7 +121,7 @@ export function Sidebar({
     >
       {/* Top group: Logo + Home/Search + Workspace Switcher */}
       <div className={cn('flex flex-col gap-1 pt-3 pb-6 px-3')}>
-        {/* Logo */}
+        {/* Org logo */}
         <Link
           href="/"
           className={cn(
@@ -128,16 +129,12 @@ export function Sidebar({
             collapsed ? 'justify-center px-2' : 'px-3'
           )}
         >
-          <Image
-            src="/entries-icon.png"
-            alt="Entries"
-            width={24}
-            height={24}
-            className="h-6 w-6 rounded-[3px] flex-shrink-0"
-          />
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold flex-shrink-0">
+            {org.initials}
+          </span>
           {!collapsed && (
-            <span className="font-heading text-sm font-semibold text-sidebar-accent-foreground">
-              Entries
+            <span className="font-heading text-sm font-semibold text-sidebar-accent-foreground truncate">
+              {org.name}
             </span>
           )}
         </Link>

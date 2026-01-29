@@ -6,8 +6,8 @@ import { CreateWorkspaceModal } from './create-workspace-modal'
 import { PageHeader } from '@/components/layout'
 import { HomeGreeting } from './home-greeting'
 import { RecentActivityFeed } from './recent-activity-feed'
-import { Home, Plus } from 'lucide-react'
-import Image from 'next/image'
+import { Home, Plus, Building2, Activity } from 'lucide-react'
+import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
 
 async function ClientList() {
@@ -42,7 +42,7 @@ export default function HomePage() {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Writeoff', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
           { label: 'Home', icon: <Home className="h-4 w-4" /> },
         ]}
       />
@@ -54,9 +54,10 @@ export default function HomePage() {
           {/* Clients Section */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
+              <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Building2 className="h-4 w-4" />
                 Clients
-              </h3>
+              </p>
               <CreateWorkspaceModal
                 trigger={
                   <Button size="sm" className="h-8">
@@ -75,9 +76,10 @@ export default function HomePage() {
 
           {/* Recent Activity Section */}
           <section>
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-4">
+              <Activity className="h-4 w-4" />
               Recent activity
-            </h3>
+            </p>
             <Suspense fallback={<div className="bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm">Loading activity...</div>}>
               <RecentActivity />
             </Suspense>

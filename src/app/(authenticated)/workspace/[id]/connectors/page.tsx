@@ -1,121 +1,62 @@
-import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
   Building2,
   Check,
+  CircleHelp,
+  Landmark,
   Plug,
   Plus,
-  ExternalLink,
-  RefreshCw,
   Settings,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ConnectorLogo } from '@/components/ui/connector-logo'
+import type { ConnectorType } from '@/components/ui/connector-logo-config'
+import { org } from '@/lib/config'
 
 interface ConnectorsPageProps {
   params: Promise<{ id: string }>
 }
 
 // Mock connected apps
-const connectedApps = [
+const connectedApps: {
+  id: string
+  name: string
+  connector: ConnectorType
+  accountName: string
+}[] = [
   {
     id: 'qbo',
     name: 'QuickBooks Online',
-    description: 'Accounting software',
-    logo: '🟢',
-    status: 'connected',
-    lastSync: new Date('2024-01-20T10:00:00'),
+    connector: 'quickbooks',
     accountName: 'Acme Corporation',
   },
   {
-    id: 'plaid',
-    name: 'Plaid',
-    description: 'Bank connections',
-    logo: '⬛',
-    status: 'connected',
-    lastSync: new Date('2024-01-20T09:30:00'),
+    id: 'chase',
+    name: 'Chase',
+    connector: 'chase',
     accountName: 'Chase Business ****4521',
   },
 ]
 
-// Mock available connectors
-const availableConnectors = [
-  {
-    id: 'stripe',
-    name: 'Stripe',
-    description: 'Payment processing',
-    logo: '💳',
-    category: 'Payments',
-  },
-  {
-    id: 'xero',
-    name: 'Xero',
-    description: 'Accounting software',
-    logo: '🔵',
-    category: 'Accounting',
-  },
-  {
-    id: 'square',
-    name: 'Square',
-    description: 'Point of sale',
-    logo: '⬜',
-    category: 'Payments',
-  },
-  {
-    id: 'shopify',
-    name: 'Shopify',
-    description: 'E-commerce platform',
-    logo: '🛍️',
-    category: 'E-commerce',
-  },
-  {
-    id: 'gusto',
-    name: 'Gusto',
-    description: 'Payroll & HR',
-    logo: '🧑‍💼',
-    category: 'Payroll',
-  },
-  {
-    id: 'bill',
-    name: 'Bill.com',
-    description: 'Accounts payable',
-    logo: '📄',
-    category: 'Payments',
-  },
-  {
-    id: 'hubspot',
-    name: 'HubSpot',
-    description: 'CRM & Sales',
-    logo: '🟠',
-    category: 'CRM',
-  },
-  {
-    id: 'salesforce',
-    name: 'Salesforce',
-    description: 'CRM platform',
-    logo: '☁️',
-    category: 'CRM',
-  },
+// Mock available connectors (ConnectorType items)
+const availableConnectors: {
+  id: string
+  name: string
+  connector: ConnectorType
+  beta?: boolean
+}[] = [
+  { id: 'stripe', name: 'Stripe', connector: 'stripe' },
+  { id: 'xero', name: 'Xero', connector: 'xero' },
+  { id: 'square', name: 'Square', connector: 'square', beta: true },
+  { id: 'shopify', name: 'Shopify', connector: 'shopify' },
+  { id: 'gusto', name: 'Gusto', connector: 'gusto', beta: true },
+  { id: 'bill', name: 'Bill.com', connector: 'bill' },
+  { id: 'hubspot', name: 'HubSpot', connector: 'hubspot', beta: true },
+  { id: 'salesforce', name: 'Salesforce', connector: 'salesforce' },
 ]
-
-function formatLastSync(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-
-  if (diffMins < 60) {
-    return `${diffMins} min ago`
-  } else if (diffHours < 24) {
-    return `${diffHours} hours ago`
-  } else {
-    return date.toLocaleDateString()
-  }
-}
 
 export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
   const { id } = await params
@@ -133,110 +74,78 @@ export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
           { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
           { label: 'Data Connectors', icon: <Plug className="h-4 w-4" /> },
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="space-y-8">
-          {/* Connected Apps Section */}
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Connected Section */}
           <section>
-            <h2 className="text-lg font-semibold mb-4">Connected Apps</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+            <h2 className="text-sm font-semibold mb-4">Connected</h2>
+            <div className="divide-y divide-border">
               {connectedApps.map((app) => (
-                <Card key={app.id} className="bg-card border-border">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="text-3xl">{app.logo}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{app.name}</h3>
-                          <Badge
-                            variant="outline"
-                            className="bg-green-500/20 text-green-400 border-green-500/30"
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            Connected
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {app.accountName}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Last synced {formatLastSync(app.lastSync)}
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div key={app.id} className="flex items-center gap-3 py-3">
+                  <ConnectorLogo connector={app.connector} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium">{app.name}</h3>
+                    <p className="text-sm text-muted-foreground">{app.accountName}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4" />
+                      Connected
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </section>
 
           {/* Available Connectors Section */}
           <section>
-            <h2 className="text-lg font-semibold mb-4">Available Connectors</h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold flex items-center gap-1.5">
+                Workspace Data Connectors
+                <CircleHelp className="h-4 w-4 text-muted-foreground" />
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Workspace owners can connect all your team&apos;s financial data sources.
+              </p>
+            </div>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+              {/* Connect Bank Feed — special entry */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/50 transition-colors">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white shrink-0">
+                  <Landmark className="h-4 w-4" />
+                </div>
+                <span className="text-sm font-medium flex-1">Connect Bank Feed</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
               {availableConnectors.map((connector) => (
-                <Card
+                <div
                   key={connector.id}
-                  className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer group"
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/50 transition-colors"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="text-2xl">{connector.logo}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium">{connector.name}</h3>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Connect
-                          </Button>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {connector.description}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className="mt-2 text-xs bg-muted/50"
-                        >
-                          {connector.category}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <ConnectorLogo connector={connector.connector} size="md" />
+                  <span className="text-sm font-medium flex-1">{connector.name}</span>
+                  {connector.beta && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-blue-400 border-blue-400/40">
+                      Beta
+                    </Badge>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground shrink-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               ))}
             </div>
-          </section>
-
-          {/* Request a Connector */}
-          <section>
-            <Card className="bg-card border-border border-dashed">
-              <CardContent className="p-6 text-center">
-                <h3 className="font-medium mb-2">Don&apos;t see what you need?</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Request a new connector and we&apos;ll prioritize it based on demand.
-                </p>
-                <Button variant="outline">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Request Connector
-                </Button>
-              </CardContent>
-            </Card>
           </section>
         </div>
       </div>

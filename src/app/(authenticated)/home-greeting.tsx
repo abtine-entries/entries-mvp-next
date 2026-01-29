@@ -18,7 +18,7 @@ export function HomeGreeting() {
 
   return (
     <div className="text-center py-12">
-      <h1 className="text-[2.5rem] leading-[1.2] font-semibold tracking-tight">
+      <h1 className="text-xl font-semibold tracking-tight">
         {greeting}
       </h1>
     </div>

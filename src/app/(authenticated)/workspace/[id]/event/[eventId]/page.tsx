@@ -4,10 +4,13 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Activity, Building2 } from 'lucide-react'
+import { SourceIcon } from '@/components/ui/source-icon'
 import { PropertiesSection } from './properties-section'
 import { NotesSection } from './notes-section'
 import { AuditTrailSection } from './audit-trail-section'
 import { EntityDetails } from './entity-details'
+
+import type { ReactNode } from 'react'
 
 type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'error' | 'info'
 
@@ -17,6 +20,7 @@ interface EntityDetail {
   badge?: {
     variant: BadgeVariant
   }
+  icon?: ReactNode
 }
 
 function formatCurrency(amount: number | { toNumber(): number }): string {
@@ -51,9 +55,39 @@ function getSeverityBadgeVariant(severity: string): 'error' | 'warning' | 'info'
 
 function getSourceLabel(source: string): string {
   switch (source) {
-    case 'bank': return 'Bank (Plaid)'
+    case 'bank': return 'Chase'
     case 'qbo': return 'QuickBooks'
     default: return source
+  }
+}
+
+interface EntitySource {
+  /** Raw key for logo rendering, e.g. "chase", "quickbooks", "entries" */
+  key: string
+  /** Human-readable label, e.g. "Chase", "QuickBooks", "Entries AI" */
+  label: string
+}
+
+async function fetchEntitySource(entityType: string, entityId: string): Promise<EntitySource | null> {
+  switch (entityType) {
+    case 'transaction': {
+      const txn = await prisma.transaction.findUnique({
+        where: { id: entityId },
+        select: { source: true },
+      })
+      if (!txn) return null
+      // Map DB source values to connector keys
+      const keyMap: Record<string, string> = { bank: 'chase', qbo: 'quickbooks' }
+      return { key: keyMap[txn.source] ?? txn.source, label: getSourceLabel(txn.source) }
+    }
+    case 'match':
+      return { key: 'entries', label: 'Entries AI' }
+    case 'anomaly':
+      return { key: 'entries', label: 'Entries AI' }
+    case 'rule':
+      return { key: 'entries', label: 'Entries AI' }
+    default:
+      return null
   }
 }
 
@@ -152,7 +186,18 @@ export default async function EventPage({ params }: EventPageProps) {
     notFound()
   }
 
-  const entityDetails = await fetchEntityDetails(event.entityType, event.entityId)
+  const [entityDetailsRaw, entitySource] = await Promise.all([
+    fetchEntityDetails(event.entityType, event.entityId),
+    fetchEntitySource(event.entityType, event.entityId),
+  ])
+
+  // Inject source logo into the Source detail row
+  const entityDetails = entityDetailsRaw.map((detail) => {
+    if (detail.label === 'Source' && entitySource) {
+      return { ...detail, icon: <SourceIcon sourceKey={entitySource.key} /> }
+    }
+    return detail
+  })
 
   const propertyDefinitions = await prisma.eventPropertyDefinition.findMany({
     where: { workspaceId },
@@ -185,6 +230,31 @@ export default async function EventPage({ params }: EventPageProps) {
     createdAt: log.createdAt.toISOString(),
   }))
 
+  // Build raw event payload for developer inspection
+  const eventPayload: Record<string, unknown> = {
+    id: event.id,
+    entity_type: event.entityType,
+    entity_id: event.entityId,
+    title: event.title,
+    workspace: {
+      id: event.workspace.id,
+      name: event.workspace.name,
+    },
+    created_at: event.createdAt.toISOString(),
+    updated_at: event.updatedAt.toISOString(),
+    entity_details: entityDetails.reduce((acc, d) => {
+      acc[d.label.toLowerCase().replace(/\s+/g, '_')] = d.value
+      return acc
+    }, {} as Record<string, string | null>),
+    properties: event.properties.map((p) => ({
+      id: p.id,
+      definition_id: p.definitionId,
+      value: p.value,
+    })),
+    notes_count: event.notes.length,
+    audit_log_count: auditLogs.length,
+  }
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -200,7 +270,7 @@ export default async function EventPage({ params }: EventPageProps) {
           {/* Header */}
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{event.title}</h1>
+              <h1 className="text-lg font-semibold">{event.title}</h1>
               <Badge variant="outline">{event.entityType}</Badge>
             </div>
             <EntityDetails details={entityDetails} />
@@ -228,7 +298,13 @@ export default async function EventPage({ params }: EventPageProps) {
           />
 
           {/* Audit Trail Section */}
-          <AuditTrailSection entries={auditEntries} />
+          <AuditTrailSection
+            entries={auditEntries}
+            originPayload={eventPayload}
+            originTimestamp={event.createdAt.toISOString()}
+            originSourceKey={entitySource?.key}
+            originSourceLabel={entitySource?.label}
+          />
         </div>
       </div>
     </div>

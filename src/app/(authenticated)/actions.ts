@@ -64,7 +64,7 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
 // TODO: Replace with actual database field when schema is updated
 function getWorkspaceConnectors(workspaceName: string): ConnectorType[] {
   const connectorSets: Record<string, ConnectorType[]> = {
-    'Acme Corporation': ['quickbooks', 'plaid', 'stripe'],
+    'Acme Corporation': ['quickbooks', 'chase', 'stripe'],
     'Tech Startup Inc': ['xero', 'stripe'],
     'TechStart Inc.': ['xero', 'stripe'],
     'Green Valley Landscaping': ['quickbooks', 'gusto'],
@@ -125,8 +125,8 @@ export async function getRecentActivity(): Promise<RecentActivityEvent[]> {
       currency: 'USD',
     }).format(Math.abs(txn.amount.toNumber()))
 
-    const source = txn.source === 'qbo' ? 'Xero' : 'Plaid'
-    const sourceKey = txn.source === 'qbo' ? 'xero' : 'plaid'
+    const source = txn.source === 'qbo' ? 'Xero' : 'Chase'
+    const sourceKey = txn.source === 'qbo' ? 'xero' : 'chase'
 
     events.push({
       id: `txn-${txn.id}`,

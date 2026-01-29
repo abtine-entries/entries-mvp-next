@@ -1,34 +1,17 @@
-import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Activity,
-  Building2,
-  Sparkles,
-  Plus,
-} from 'lucide-react'
-import { ConnectorLogo } from '@/components/ui/connector-logo'
-import type { ConnectorType } from '@/components/ui/connector-logo-config'
+import { Activity, Building2 } from 'lucide-react'
+import { org } from '@/lib/config'
 import { EventFeedDataTable } from './event-feed-data-table'
 
 interface EventFeedPageProps {
   params: Promise<{ id: string }>
 }
 
-// Mock data sources
-const dataSources = [
-  { id: 'qbo', name: 'QuickBooks Online', connector: 'quickbooks' as ConnectorType, connected: true },
-  { id: 'plaid', name: 'Plaid', connector: 'plaid' as ConnectorType, connected: true },
-  { id: 'entries', name: 'Entries AI', connected: true },
-]
-
 // Map transaction source field to feed source identifier
 function mapTransactionSource(source: string): { source: string; sourceLabel: string } {
-  if (source === 'bank') return { source: 'plaid', sourceLabel: 'Plaid' }
+  if (source === 'bank') return { source: 'chase', sourceLabel: 'Chase' }
   if (source === 'qbo') return { source: 'qbo', sourceLabel: 'QBO' }
   return { source: 'entries', sourceLabel: 'Entries' }
 }
@@ -73,6 +56,19 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
     transactions.map((t) => [t.id, t.source])
   )
 
+  // Map entityType to a display-friendly type label
+  function mapEntityTypeLabel(entityType: string): string {
+    switch (entityType) {
+      case 'transaction': return 'Transaction'
+      case 'match': return 'Match'
+      case 'anomaly': return 'Anomaly'
+      case 'rule': return 'Rule'
+      case 'sync': return 'Sync'
+      case 'ai_action': return 'AI Action'
+      default: return entityType.charAt(0).toUpperCase() + entityType.slice(1)
+    }
+  }
+
   // Build feed items with source info
   const feedItems = events.map((event) => {
     let sourceInfo: { source: string; sourceLabel: string }
@@ -91,8 +87,11 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
       occurredAt: event.createdAt,
       source: sourceInfo.source,
       sourceLabel: sourceInfo.sourceLabel,
+      type: mapEntityTypeLabel(event.entityType),
       description: event.title,
       entityType: event.entityType,
+      entityId: event.entityId,
+      eventId: event.id,
     }
   })
 
@@ -100,93 +99,13 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
           { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
           { label: 'Event Feed', icon: <Activity className="h-4 w-4" /> },
         ]}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="flex gap-6">
-          {/* Left sidebar with filters */}
-          <div className="w-64 shrink-0 space-y-6">
-            {/* Data Sources */}
-            <Card className="bg-card border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Data Sources
-                  </h3>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {dataSources.map((source) => (
-                    <div
-                      key={source.id}
-                      className="flex items-center gap-3 py-1.5"
-                    >
-                      {source.connector ? (
-                        <ConnectorLogo connector={source.connector} size="sm" />
-                      ) : (
-                        <Sparkles className="h-4 w-4 text-primary" />
-                      )}
-                      <span className="text-sm">{source.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Filter by Source */}
-            <Card className="bg-card border-border">
-              <CardContent className="p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-                  Filter by Source
-                </h3>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <Checkbox defaultChecked />
-                    <span className="text-sm">All Sources</span>
-                  </label>
-                  {dataSources.map((source) => (
-                    <label
-                      key={source.id}
-                      className="flex items-center gap-3 cursor-pointer"
-                    >
-                      <Checkbox />
-                      <span className="text-sm text-muted-foreground">
-                        {source.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Date Range */}
-            <Card className="bg-card border-border">
-              <CardContent className="p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-                  Date Range
-                </h3>
-                <Button variant="outline" className="w-full justify-start text-sm">
-                  All time
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Event list */}
-          <div className="flex-1">
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                <EventFeedDataTable data={feedItems} workspaceId={workspace.id} />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <EventFeedDataTable data={feedItems} workspaceId={workspace.id} />
       </div>
     </div>
   )

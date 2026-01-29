@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
 import type { ConnectorType } from '@/components/ui/connector-logo-config'
+import { SyntaxJson } from '@/components/ui/syntax-json'
 import type { RecentActivityEvent } from './actions'
 
 const tzAbbr = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
@@ -38,7 +39,7 @@ function SourceIcon({ source }: { source: string }) {
   }
 
   const connectorTypes: ConnectorType[] = [
-    'quickbooks', 'xero', 'stripe', 'plaid', 'chase',
+    'quickbooks', 'xero', 'stripe', 'chase',
     'bankofamerica', 'wells_fargo', 'mercury', 'brex',
     'ramp', 'gusto', 'adp'
   ]
@@ -80,32 +81,6 @@ function eventToPayload(event: RecentActivityEvent) {
       : event.occurredAt,
     timezone: tzAbbr,
   }
-}
-
-function SyntaxJson({ data }: { data: Record<string, unknown> }) {
-  const json = JSON.stringify(data, null, 2)
-
-  // Tokenize JSON for syntax highlighting
-  const highlighted = json.replace(
-    /("(?:\\.|[^"\\])*")\s*:/g, // keys
-    '<span class="text-zinc-400">$1</span>:'
-  ).replace(
-    /:\s*("(?:\\.|[^"\\])*")/g, // string values
-    ': <span class="text-blue-400">$1</span>'
-  ).replace(
-    /:\s*(\d+(?:\.\d+)?)/g, // numbers
-    ': <span class="text-amber-400">$1</span>'
-  ).replace(
-    /:\s*(true|false|null)/g, // booleans & null
-    ': <span class="text-purple-400">$1</span>'
-  )
-
-  return (
-    <pre
-      className="text-[11px] leading-relaxed font-mono text-zinc-300 whitespace-pre-wrap break-all"
-      dangerouslySetInnerHTML={{ __html: highlighted }}
-    />
-  )
 }
 
 function JsonPayloadHover({ event }: { event: RecentActivityEvent }) {
