@@ -2,8 +2,10 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { authConfig } from '@/lib/auth.config'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       name: 'Credentials',
@@ -33,34 +35,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
+        // Capture previous login timestamp before updating
+        const previousLoginAt = user.lastLoginAt ? user.lastLoginAt.toISOString() : null
+
+        // Update lastLoginAt to now (non-blocking — don't let this crash login)
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          })
+        } catch (e) {
+          console.error('Failed to update lastLoginAt:', e)
+        }
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-        }
+          lastLoginAt: previousLoginAt,
+        } as { id: string; email: string; name: string | null; lastLoginAt: string | null }
       },
     }),
   ],
-  session: {
-    strategy: 'jwt',
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.email = user.email
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.email = token.email as string
-      }
-      return session
-    },
-  },
-  pages: {
-    signIn: '/login',
-  },
 })
