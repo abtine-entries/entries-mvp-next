@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   Home,
@@ -15,7 +14,6 @@ import {
   BookOpen,
   Search,
 } from 'lucide-react'
-import { org } from '@/lib/config'
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +27,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { SearchModal } from './search-modal'
+import { WorkspaceSwitcher } from './workspace-switcher'
 
 interface Workspace {
   id: string
@@ -91,30 +90,10 @@ export function AppSidebar({ workspaces, ...props }: AppSidebarProps) {
     <>
       <Sidebar collapsible="icon" {...props}>
         <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <Link href="/">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <Image
-                      src="/entries-icon.png"
-                      alt={org.name}
-                      width={24}
-                      height={24}
-                    />
-                  </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{org.name}</span>
-                    {currentWorkspace && (
-                      <span className="truncate text-xs text-sidebar-foreground/70">
-                        {currentWorkspace.name}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <WorkspaceSwitcher
+            workspaces={workspaces}
+            currentWorkspace={currentWorkspace}
+          />
         </SidebarHeader>
 
         <SidebarContent>
