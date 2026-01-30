@@ -63,6 +63,7 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // Clean up existing data (order matters for foreign key constraints)
+  await prisma.esmeConfidence.deleteMany()
   await prisma.esmeMessage.deleteMany()
   await prisma.alert.deleteMany()
   await prisma.eventNote.deleteMany()
@@ -829,6 +830,48 @@ async function main() {
   const documentCount = await prisma.document.count()
   console.log(`✅ Created ${documentCount} sample documents across workspaces`)
 
+  // Create sample EsmeConfidence records for each workspace
+  // Realistic progression: some categories well-established (tier 2), most at tier 1
+  const confidenceRecords = [
+    // Category patterns — well-confirmed
+    { patternType: 'category', patternKey: 'Payroll', tier: 2, confirmCount: 15, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    { patternType: 'category', patternKey: 'Rent', tier: 2, confirmCount: 12, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Utilities', tier: 2, confirmCount: 10, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    // Category patterns — learning (tier 1)
+    { patternType: 'category', patternKey: 'Office Supplies', tier: 1, confirmCount: 3, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Professional Services', tier: 1, confirmCount: 5, correctionCount: 2, lastConfirmedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Bank Fees', tier: 1, confirmCount: 7, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    { patternType: 'category', patternKey: 'Sales Revenue', tier: 1, confirmCount: 4, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Service Revenue', tier: 1, confirmCount: 2, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    // Vendor patterns
+    { patternType: 'vendor', patternKey: 'Gusto', tier: 2, confirmCount: 14, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    { patternType: 'vendor', patternKey: 'Staples', tier: 1, confirmCount: 4, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'vendor', patternKey: 'Chase Bank', tier: 1, confirmCount: 6, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    // Locked pattern — accountant wants to always be asked about legal fees
+    { patternType: 'category', patternKey: 'Accounts Payable', tier: 1, confirmCount: 3, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: true },
+  ]
+
+  for (const ws of [workspace1, workspace2]) {
+    for (const record of confidenceRecords) {
+      await prisma.esmeConfidence.create({
+        data: {
+          workspaceId: ws.id,
+          patternType: record.patternType,
+          patternKey: record.patternKey,
+          tier: record.tier,
+          confirmCount: record.confirmCount,
+          correctionCount: record.correctionCount,
+          lastConfirmedAt: record.lastConfirmedAt,
+          lastCorrectedAt: record.lastCorrectedAt,
+          isLocked: record.isLocked,
+        },
+      })
+    }
+  }
+
+  const esmeConfidenceCount = await prisma.esmeConfidence.count()
+  console.log(`✅ Created ${esmeConfidenceCount} Esme confidence records across workspaces`)
+
   // Summary
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
@@ -841,6 +884,7 @@ async function main() {
   const finalAlertCount = await prisma.alert.count()
   const finalEsmeMessageCount = await prisma.esmeMessage.count()
   const finalDocumentCount = await prisma.document.count()
+  const finalEsmeConfidenceCount = await prisma.esmeConfidence.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
@@ -854,6 +898,7 @@ async function main() {
   console.log(`   Alerts: ${finalAlertCount}`)
   console.log(`   Esme Messages: ${finalEsmeMessageCount}`)
   console.log(`   Documents: ${finalDocumentCount}`)
+  console.log(`   Esme Confidence: ${finalEsmeConfidenceCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 

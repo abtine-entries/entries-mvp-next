@@ -48,6 +48,7 @@ model Workspace {
   vendors                Vendor[]
   documents              Document[]
   esmeMessages           EsmeMessage[]
+  esmeConfidences        EsmeConfidence[]
 }
 
 model Category {
@@ -274,4 +275,23 @@ model EsmeMessage {
   createdAt   DateTime @default(now())
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model EsmeConfidence {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  patternType     String    // 'category', 'vendor', 'rule'
+  patternKey      String    // category name, vendor name, or rule ID
+  tier            Int       @default(1) // 1=suggest, 2=act+notify, 3=act silently
+  confirmCount    Int       @default(0)
+  correctionCount Int       @default(0)
+  lastConfirmedAt DateTime?
+  lastCorrectedAt DateTime?
+  isLocked        Boolean   @default(false) // accountant manually locked to current tier
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, patternType, patternKey])
 }
