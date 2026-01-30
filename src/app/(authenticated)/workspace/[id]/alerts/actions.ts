@@ -140,6 +140,7 @@ export async function resolveAlert(
     })
 
     revalidatePath(`/workspace/${workspaceId}/alerts`)
+    revalidatePath(`/workspace/${workspaceId}/esme`)
     return { success: true }
   } catch (error) {
     console.error('Failed to resolve alert:', error)

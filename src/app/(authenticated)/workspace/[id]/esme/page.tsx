@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Sparkles } from 'lucide-react'
 import { EsmeChat } from './esme-chat'
+import type { SerializedAlert } from './esme-chat'
 import { org } from '@/lib/config'
 
 interface EsmePageProps {
@@ -26,6 +27,40 @@ export default async function EsmePage({ params }: EsmePageProps) {
     orderBy: { createdAt: 'asc' },
   })
 
+  // Extract alertIds from message metadata
+  const alertIds: string[] = []
+  for (const m of messages) {
+    if (m.metadata) {
+      try {
+        const parsed = JSON.parse(m.metadata)
+        if (parsed.alertId) alertIds.push(parsed.alertId)
+      } catch {
+        // ignore invalid JSON
+      }
+    }
+  }
+
+  // Batch-fetch alerts referenced by messages
+  const alertsMap: Record<string, SerializedAlert> = {}
+  if (alertIds.length > 0) {
+    const alerts = await prisma.alert.findMany({
+      where: { id: { in: alertIds } },
+    })
+    for (const a of alerts) {
+      alertsMap[a.id] = {
+        id: a.id,
+        type: a.type,
+        priority: a.priority,
+        status: a.status,
+        title: a.title,
+        body: a.body,
+        responseType: a.responseType,
+        responseOptions: a.responseOptions,
+        responseValue: a.responseValue,
+      }
+    }
+  }
+
   const serializedMessages = messages.map((m) => ({
     id: m.id,
     role: m.role as 'esme' | 'user',
@@ -43,7 +78,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
           { label: 'Esme', icon: <Sparkles className="h-4 w-4" /> },
         ]}
       />
-      <EsmeChat workspaceId={workspace.id} workspaceName={workspace.name} initialMessages={serializedMessages} />
+      <EsmeChat workspaceId={workspace.id} workspaceName={workspace.name} initialMessages={serializedMessages} alertsMap={alertsMap} />
     </div>
   )
 }

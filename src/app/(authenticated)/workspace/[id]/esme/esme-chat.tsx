@@ -3,9 +3,13 @@
 import { useRef, useEffect, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ArrowUp } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { ArrowUp, AlertTriangle, MessageCircleQuestion, RefreshCw, TrendingUp, Bell, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { sendEsmeMessage } from './actions'
+import { ConfirmResponse } from '../alerts/confirm-response'
+import { SelectResponse } from '../alerts/select-response'
+import { TextResponse } from '../alerts/text-response'
 
 export interface SerializedEsmeMessage {
   id: string
@@ -15,10 +19,37 @@ export interface SerializedEsmeMessage {
   createdAt: string
 }
 
+export interface SerializedAlert {
+  id: string
+  type: string
+  priority: string
+  status: string
+  title: string
+  body: string
+  responseType: string | null
+  responseOptions: string | null
+  responseValue: string | null
+}
+
 interface EsmeChatProps {
   workspaceId: string
   workspaceName: string
   initialMessages: SerializedEsmeMessage[]
+  alertsMap: Record<string, SerializedAlert>
+}
+
+const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  anomaly: AlertTriangle,
+  ai_question: MessageCircleQuestion,
+  system: RefreshCw,
+  insight: TrendingUp,
+}
+
+const typeLabels: Record<string, string> = {
+  anomaly: 'Anomaly',
+  ai_question: 'AI Question',
+  system: 'System',
+  insight: 'Insight',
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -36,7 +67,69 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function EsmeChat({ workspaceId, workspaceName, initialMessages }: EsmeChatProps) {
+function AlertActionCard({ alert, workspaceId }: { alert: SerializedAlert; workspaceId: string }) {
+  const Icon = typeIcons[alert.type] ?? Bell
+  const isRequiresAction = alert.priority === 'requires_action'
+  const isResolved = alert.status === 'resolved'
+
+  return (
+    <div className={cn(
+      'mt-2 rounded-xl border p-3 text-sm',
+      isResolved ? 'opacity-60' : '',
+      isRequiresAction && !isResolved ? 'border-l-4 border-l-warning' : ''
+    )}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Badge variant={isRequiresAction ? 'warning' : 'secondary'} className="text-xs">
+          {isRequiresAction ? 'Requires Action' : 'FYI'}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          {typeLabels[alert.type] ?? alert.type}
+        </span>
+      </div>
+      <p className="font-medium mb-1">{alert.title}</p>
+      <p className="text-muted-foreground line-clamp-2">{alert.body}</p>
+
+      {isResolved ? (
+        <div className="flex items-center gap-1.5 mt-3 text-xs text-emerald-500">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span>Resolved{alert.responseValue ? `: ${alert.responseValue}` : ''}</span>
+        </div>
+      ) : (
+        <>
+          {alert.responseType === 'confirm' && (
+            <ConfirmResponse alertId={alert.id} workspaceId={workspaceId} />
+          )}
+          {alert.responseType === 'select' && alert.responseOptions && (
+            <SelectResponse
+              alertId={alert.id}
+              workspaceId={workspaceId}
+              responseOptions={alert.responseOptions}
+            />
+          )}
+          {alert.responseType === 'text' && (
+            <TextResponse alertId={alert.id} workspaceId={workspaceId} />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function getAlertFromMetadata(metadata: string | null, alertsMap: Record<string, SerializedAlert>): SerializedAlert | null {
+  if (!metadata) return null
+  try {
+    const parsed = JSON.parse(metadata)
+    if (parsed.alertId && alertsMap[parsed.alertId]) {
+      return alertsMap[parsed.alertId]
+    }
+  } catch {
+    // ignore invalid JSON
+  }
+  return null
+}
+
+export function EsmeChat({ workspaceId, workspaceName, initialMessages, alertsMap }: EsmeChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
@@ -97,43 +190,50 @@ export function EsmeChat({ workspaceId, workspaceName, initialMessages }: EsmeCh
               </p>
             </div>
           ) : (
-            initialMessages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex gap-3',
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                )}
-              >
-                {/* Esme avatar */}
-                {message.role === 'esme' && (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-                    E
-                  </div>
-                )}
+            initialMessages.map((message) => {
+              const alert = message.role === 'esme' ? getAlertFromMetadata(message.metadata, alertsMap) : null
 
+              return (
                 <div
+                  key={message.id}
                   className={cn(
-                    'max-w-[80%] space-y-1',
-                    message.role === 'user' ? 'items-end' : 'items-start'
+                    'flex gap-3',
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
                   )}
                 >
+                  {/* Esme avatar */}
+                  {message.role === 'esme' && (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                      E
+                    </div>
+                  )}
+
                   <div
                     className={cn(
-                      'rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap',
-                      message.role === 'user'
-                        ? 'bg-muted'
-                        : 'bg-card border border-border'
+                      'max-w-[80%] space-y-1',
+                      message.role === 'user' ? 'items-end' : 'items-start'
                     )}
                   >
-                    {message.content}
+                    <div
+                      className={cn(
+                        'rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap',
+                        message.role === 'user'
+                          ? 'bg-muted'
+                          : 'bg-card border border-border'
+                      )}
+                    >
+                      {message.content}
+                      {alert && (
+                        <AlertActionCard alert={alert} workspaceId={workspaceId} />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground px-1">
+                      {formatRelativeTime(message.createdAt)}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground px-1">
-                    {formatRelativeTime(message.createdAt)}
-                  </p>
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
           <div ref={messagesEndRef} />
         </div>
