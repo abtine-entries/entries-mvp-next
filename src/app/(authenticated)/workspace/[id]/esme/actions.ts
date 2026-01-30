@@ -51,6 +51,147 @@ async function getBillSummaryReply(workspaceId: string): Promise<string> {
   return `You have ${authorizedBills.length} authorized bills totaling ${formattedTotal} from ${vendorNames.size} vendors. [View Bills](/workspace/${workspaceId}/bills)`
 }
 
+export interface DailyBriefingData {
+  greeting: string
+  summary: string
+  stats: { label: string; value: string; icon: string }[]
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+export async function generateDailyBriefing(
+  workspaceId: string
+): Promise<DailyBriefingData> {
+  const now = new Date()
+  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+  // Query active alerts (status='active' OR snoozed with expired snoozedUntil)
+  const [requiresActionCount, fyiCount] = await Promise.all([
+    prisma.alert.count({
+      where: {
+        workspaceId,
+        priority: 'requires_action',
+        OR: [
+          { status: 'active' },
+          { status: 'snoozed', snoozedUntil: { lt: now } },
+        ],
+      },
+    }),
+    prisma.alert.count({
+      where: {
+        workspaceId,
+        priority: 'fyi',
+        OR: [
+          { status: 'active' },
+          { status: 'snoozed', snoozedUntil: { lt: now } },
+        ],
+      },
+    }),
+  ])
+
+  const totalAlerts = requiresActionCount + fyiCount
+
+  // Query overdue bills
+  const overdueBills = await prisma.bill.findMany({
+    where: { workspaceId, status: 'overdue' },
+    select: { amount: true },
+  })
+  const overdueCount = overdueBills.length
+  const overdueTotal = overdueBills.reduce(
+    (sum, b) => sum + b.amount.toNumber(),
+    0
+  )
+
+  // Query uncategorized transactions
+  const uncategorizedCount = await prisma.transaction.count({
+    where: { workspaceId, categoryId: null },
+  })
+
+  // Query recent events (last 24h)
+  const recentEventCount = await prisma.event.count({
+    where: { workspaceId, createdAt: { gte: twentyFourHoursAgo } },
+  })
+
+  // Build stats (skip metrics with 0 value)
+  const stats: { label: string; value: string; icon: string }[] = []
+
+  if (totalAlerts > 0) {
+    stats.push({
+      label: 'Active alerts',
+      value: `${totalAlerts} (${requiresActionCount} action, ${fyiCount} FYI)`,
+      icon: 'Bell',
+    })
+  }
+
+  if (overdueCount > 0) {
+    const formattedAmount = overdueTotal.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    })
+    stats.push({
+      label: 'Overdue bills',
+      value: `${overdueCount} (${formattedAmount})`,
+      icon: 'DollarSign',
+    })
+  }
+
+  if (uncategorizedCount > 0) {
+    stats.push({
+      label: 'Uncategorized',
+      value: `${uncategorizedCount} transactions`,
+      icon: 'Tag',
+    })
+  }
+
+  if (recentEventCount > 0) {
+    stats.push({
+      label: 'Recent activity',
+      value: `${recentEventCount} events (24h)`,
+      icon: 'Activity',
+    })
+  }
+
+  // Build summary
+  const greeting = getGreeting()
+  const parts: string[] = []
+
+  if (totalAlerts > 0) {
+    parts.push(
+      `${requiresActionCount > 0 ? `${requiresActionCount} alert${requiresActionCount !== 1 ? 's' : ''} requiring action` : ''}${requiresActionCount > 0 && fyiCount > 0 ? ' and ' : ''}${fyiCount > 0 ? `${fyiCount} FYI notification${fyiCount !== 1 ? 's' : ''}` : ''}`
+    )
+  }
+
+  if (overdueCount > 0) {
+    const formattedAmount = overdueTotal.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    })
+    parts.push(
+      `${overdueCount} overdue bill${overdueCount !== 1 ? 's' : ''} totaling ${formattedAmount}`
+    )
+  }
+
+  if (uncategorizedCount > 0) {
+    parts.push(
+      `${uncategorizedCount} transaction${uncategorizedCount !== 1 ? 's' : ''} waiting to be categorized`
+    )
+  }
+
+  let summary: string
+  if (parts.length === 0) {
+    summary = "Everything looks good — no items needing attention right now. You're all caught up!"
+  } else {
+    summary = `You have ${parts.join(', ')}. ${recentEventCount > 0 ? `There were also ${recentEventCount} event${recentEventCount !== 1 ? 's' : ''} in the last 24 hours.` : ''}`
+  }
+
+  return { greeting, summary, stats }
+}
+
 export async function sendEsmeMessage(
   workspaceId: string,
   content: string
