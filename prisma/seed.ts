@@ -63,6 +63,7 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // Clean up existing data (order matters for foreign key constraints)
+  await prisma.esmeMessage.deleteMany()
   await prisma.alert.deleteMany()
   await prisma.eventNote.deleteMany()
   await prisma.eventProperty.deleteMany()
@@ -75,6 +76,7 @@ async function main() {
   await prisma.vendor.deleteMany()
   await prisma.category.deleteMany()
   await prisma.eventPropertyDefinition.deleteMany()
+  await prisma.document.deleteMany()
   await prisma.workspace.deleteMany()
   await prisma.user.deleteMany()
 
@@ -662,6 +664,90 @@ async function main() {
   const alertCount = await prisma.alert.count()
   console.log(`✅ Created ${alertCount} sample alerts across workspaces`)
 
+  // Create sample Esme messages for each workspace
+  for (const ws of [workspace1, workspace2]) {
+    // Fetch alerts for this workspace to reference in metadata
+    const wsAlerts = await prisma.alert.findMany({
+      where: { workspaceId: ws.id, status: 'active' },
+      take: 2,
+    })
+
+    const baseTime = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+
+    const esmeMessages = [
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Good morning! I've been reviewing ${ws.name}'s recent activity. There are a few things that need your attention today.`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime()),
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `I found a potential issue that needs your review.`,
+        metadata: wsAlerts[0] ? JSON.stringify({ alertId: wsAlerts[0].id }) : null,
+        createdAt: new Date(baseTime.getTime() + 1 * 60 * 1000), // +1 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'user',
+        content: `Thanks Esme, I'll take a look at that. Can you also check if there are any unmatched transactions from this week?`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 30 * 60 * 1000), // +30 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Of course! I found 12 unmatched bank transactions from the past 7 days. Most are small recurring charges that could be auto-categorized. Would you like me to suggest categories for them?`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 31 * 60 * 1000), // +31 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'user',
+        content: `Yes, go ahead and suggest categories. But flag anything over $500 for my review.`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 45 * 60 * 1000), // +45 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Got it! I've categorized 9 transactions under $500. Here are 3 that need your review — each is over $500.`,
+        metadata: wsAlerts[1] ? JSON.stringify({ alertId: wsAlerts[1].id }) : null,
+        createdAt: new Date(baseTime.getTime() + 46 * 60 * 1000), // +46 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Daily digest: ${ws.name} has 5 active alerts, 35 unmatched transactions, and the QuickBooks sync completed successfully this morning. Everything else looks good!`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 24 * 60 * 60 * 1000), // +1 day
+      },
+      {
+        workspaceId: ws.id,
+        role: 'user',
+        content: `What's the total spend on office supplies this month?`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 25 * 60 * 60 * 1000), // +25 hours
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Office supplies total for this month is $1,847.32 across 8 transactions. That's 12% higher than last month ($1,649.00). The biggest line item is a $450 Staples order from last Tuesday.`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 25 * 60 * 60 * 1000 + 30 * 1000), // +25 hours 30 sec
+      },
+    ]
+
+    for (const msg of esmeMessages) {
+      await prisma.esmeMessage.create({ data: msg })
+    }
+  }
+
+  const esmeMessageCount = await prisma.esmeMessage.count()
+  console.log(`✅ Created ${esmeMessageCount} Esme messages across workspaces`)
+
   // Summary
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
@@ -672,6 +758,7 @@ async function main() {
   const anomalyCount = await prisma.anomaly.count()
   const eventCount = await prisma.event.count()
   const finalAlertCount = await prisma.alert.count()
+  const finalEsmeMessageCount = await prisma.esmeMessage.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
@@ -683,6 +770,7 @@ async function main() {
   console.log(`   Anomalies: ${anomalyCount}`)
   console.log(`   Events: ${eventCount}`)
   console.log(`   Alerts: ${finalAlertCount}`)
+  console.log(`   Esme Messages: ${finalEsmeMessageCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 

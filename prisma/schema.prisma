@@ -47,6 +47,7 @@ model Workspace {
   alerts                 Alert[]
   vendors                Vendor[]
   documents              Document[]
+  esmeMessages           EsmeMessage[]
 }
 
 model Category {
@@ -262,4 +263,15 @@ model Document {
 
   workspace  Workspace @relation(fields: [workspaceId], references: [id])
   uploadedBy User      @relation(fields: [uploadedById], references: [id])
+}
+
+model EsmeMessage {
+  id          String   @id @default(cuid())
+  workspaceId String
+  role        String   // 'esme' or 'user'
+  content     String
+  metadata    String?  // nullable JSON string for structured data like action cards, alert references
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
