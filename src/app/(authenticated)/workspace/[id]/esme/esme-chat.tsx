@@ -193,44 +193,32 @@ export function EsmeChat({ workspaceId, workspaceName, initialMessages, alertsMa
             initialMessages.map((message) => {
               const alert = message.role === 'esme' ? getAlertFromMetadata(message.metadata, alertsMap) : null
 
-              return (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'flex gap-3',
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  )}
-                >
-                  {/* Esme avatar */}
-                  {message.role === 'esme' && (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-                      E
+              if (message.role === 'user') {
+                return (
+                  <div key={message.id} className="flex gap-3 justify-end">
+                    <div className="max-w-[80%] space-y-1 items-end">
+                      <div className="rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap bg-muted">
+                        {message.content}
+                      </div>
+                      <p className="text-xs text-muted-foreground px-1">
+                        {formatRelativeTime(message.createdAt)}
+                      </p>
                     </div>
-                  )}
-
-                  <div
-                    className={cn(
-                      'max-w-[80%] space-y-1',
-                      message.role === 'user' ? 'items-end' : 'items-start'
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap',
-                        message.role === 'user'
-                          ? 'bg-muted'
-                          : 'bg-card border border-border'
-                      )}
-                    >
-                      {message.content}
-                      {alert && (
-                        <AlertActionCard alert={alert} workspaceId={workspaceId} />
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground px-1">
-                      {formatRelativeTime(message.createdAt)}
-                    </p>
                   </div>
+                )
+              }
+
+              return (
+                <div key={message.id} className="space-y-1">
+                  <div className="text-sm whitespace-pre-wrap">
+                    {message.content}
+                  </div>
+                  {alert && (
+                    <AlertActionCard alert={alert} workspaceId={workspaceId} />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {formatRelativeTime(message.createdAt)}
+                  </p>
                 </div>
               )
             })
