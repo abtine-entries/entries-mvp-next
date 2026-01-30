@@ -72,19 +72,26 @@ export async function sendEsmeMessage(
         workspaceId,
         role: 'user',
         content: trimmed,
+        metadata: JSON.stringify({ blockType: 'user_message' }),
       },
     })
 
     // Determine reply based on keywords
-    const reply = hasBillKeyword(trimmed)
+    const isBillRelated = hasBillKeyword(trimmed)
+    const reply = isBillRelated
       ? await getBillSummaryReply(workspaceId)
       : pickEsmeReply()
+
+    const replyMetadata = isBillRelated
+      ? { blockType: 'action' as const, actionType: 'view_bills', actionStatus: 'pending' as const }
+      : { blockType: 'text' as const }
 
     await prisma.esmeMessage.create({
       data: {
         workspaceId,
         role: 'esme',
         content: reply,
+        metadata: JSON.stringify(replyMetadata),
       },
     })
 
