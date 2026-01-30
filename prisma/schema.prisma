@@ -44,6 +44,7 @@ model Workspace {
   events                 Event[]
   propertyDefinitions    EventPropertyDefinition[]
   alerts                 Alert[]
+  vendors                Vendor[]
 }
 
 model Category {
@@ -70,6 +71,7 @@ model Transaction {
   description String
   amount      Decimal
   categoryId  String?
+  vendorId    String?
   status      String    @default("unmatched") // unmatched, matched, pending
   confidence  Float?
   aiReasoning String?
@@ -78,6 +80,7 @@ model Transaction {
 
   workspace        Workspace @relation(fields: [workspaceId], references: [id])
   category         Category? @relation(fields: [categoryId], references: [id])
+  vendor           Vendor?   @relation(fields: [vendorId], references: [id])
   bankMatches      Match[]   @relation("BankTransaction")
   qboMatches       Match[]   @relation("QboTransaction")
   anomalies        Anomaly[]
@@ -221,4 +224,22 @@ model Alert {
   workspace  Workspace @relation(fields: [workspaceId], references: [id])
   resolvedBy User?     @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
   assignedTo User?     @relation("AlertAssignedTo", fields: [assignedToId], references: [id])
+}
+
+model Vendor {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  name             String
+  normalizedName   String
+  totalSpend       Decimal  @default(0)
+  transactionCount Int      @default(0)
+  firstSeen        DateTime
+  lastSeen         DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  transactions Transaction[]
+
+  @@unique([workspaceId, normalizedName])
 }
