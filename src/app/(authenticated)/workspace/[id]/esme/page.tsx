@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/layout'
 import { Building2, Sparkles } from 'lucide-react'
 import { EsmeCanvas } from './esme-canvas'
 import { org } from '@/lib/config'
+import { generateDailyBriefing } from './actions'
 import type {
   CanvasBlock,
   SerializedAlert,
@@ -29,6 +30,34 @@ export default async function EsmePage({ params }: EsmePageProps) {
 
   if (!workspace) {
     notFound()
+  }
+
+  // Check if a briefing exists for today and create one if not
+  const today = new Date().toISOString().split('T')[0]
+  const existingBriefing = await prisma.esmeMessage.findFirst({
+    where: {
+      workspaceId: id,
+      role: 'esme',
+      metadata: { contains: `"briefingDate":"${today}"` },
+    },
+  })
+
+  if (!existingBriefing) {
+    const briefingData = await generateDailyBriefing(id)
+    await prisma.esmeMessage.create({
+      data: {
+        workspaceId: id,
+        role: 'esme',
+        content: briefingData.summary,
+        metadata: JSON.stringify({
+          blockType: 'briefing',
+          briefingDate: today,
+          greeting: briefingData.greeting,
+          summary: briefingData.summary,
+          stats: briefingData.stats,
+        }),
+      },
+    })
   }
 
   const messages = await prisma.esmeMessage.findMany({

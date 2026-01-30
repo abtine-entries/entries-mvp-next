@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, MessageCircleQuestion, RefreshCw, TrendingUp, Bell, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, MessageCircleQuestion, RefreshCw, TrendingUp, Bell, CheckCircle2, Sparkles, DollarSign, Tag, Activity } from 'lucide-react'
 import { ConfirmResponse } from '../alerts/confirm-response'
 import { SelectResponse } from '../alerts/select-response'
 import { TextResponse } from '../alerts/text-response'
@@ -20,6 +20,13 @@ const typeLabels: Record<string, string> = {
   ai_question: 'AI Question',
   system: 'System',
   insight: 'Insight',
+}
+
+const statIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  Bell,
+  DollarSign,
+  Tag,
+  Activity,
 }
 
 export function formatRelativeTime(dateString: string): string {
@@ -104,6 +111,37 @@ export function CanvasBlock({ block, workspaceId }: CanvasBlockProps) {
               {formatRelativeTime(block.createdAt)}
             </p>
           </div>
+        </div>
+      )
+
+    case 'briefing':
+      return (
+        <div className="space-y-3 rounded-xl bg-primary/5 border border-primary/20 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Sparkles className="h-4 w-4" />
+            <span>Daily Briefing</span>
+          </div>
+          <p className="text-base font-medium">{block.greeting}</p>
+          <p className="text-sm text-muted-foreground">{block.summary}</p>
+          {block.stats.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {block.stats.map((stat) => {
+                const StatIcon = statIcons[stat.icon] ?? Sparkles
+                return (
+                  <span
+                    key={stat.label}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium"
+                  >
+                    <StatIcon className="h-3.5 w-3.5" />
+                    {stat.label}: {stat.value}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {formatRelativeTime(block.createdAt)}
+          </p>
         </div>
       )
 
