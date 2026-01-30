@@ -40,6 +40,7 @@ import {
   categoryColumns,
   eventColumns,
 } from './columns'
+import { RowDetailSidebar, type DetailItem } from './row-detail-sidebar'
 import type { ExplorerData } from './actions'
 
 const PAGE_SIZE = 25
@@ -77,6 +78,7 @@ interface PaginatedTableProps<TData extends RowData> {
   onSortingChange: (sorting: SortingState) => void
   columnFilters: ColumnFiltersState
   onColumnFiltersChange: (filters: ColumnFiltersState) => void
+  onRowClick?: (row: TData) => void
 }
 
 function PaginatedTable<TData extends RowData>({
@@ -89,6 +91,7 @@ function PaginatedTable<TData extends RowData>({
   onSortingChange,
   columnFilters,
   onColumnFiltersChange,
+  onRowClick,
 }: PaginatedTableProps<TData>) {
   const table = useReactTable({
     data,
@@ -148,7 +151,11 @@ function PaginatedTable<TData extends RowData>({
           <TableBody>
             {table.getRowModel().rows.length > 0 ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : undefined}
+                  onClick={() => onRowClick?.(row.original)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
@@ -346,6 +353,8 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
     initialSortId ? [{ id: initialSortId, desc: initialSortDesc }] : []
   )
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [sidebarItem, setSidebarItem] = useState<DetailItem | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // URL update helper
   const updateParams = useCallback(
@@ -532,6 +541,10 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
           onSortingChange={handleSortingChange}
           columnFilters={columnFilters}
           onColumnFiltersChange={setColumnFilters}
+          onRowClick={(row) => {
+            setSidebarItem({ tab: 'transactions', data: row })
+            setSidebarOpen(true)
+          }}
         />
       </TabsContent>
 
@@ -546,6 +559,10 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
           onSortingChange={handleSortingChange}
           columnFilters={columnFilters}
           onColumnFiltersChange={setColumnFilters}
+          onRowClick={(row) => {
+            setSidebarItem({ tab: 'vendors', data: row })
+            setSidebarOpen(true)
+          }}
         />
       </TabsContent>
 
@@ -560,6 +577,10 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
           onSortingChange={handleSortingChange}
           columnFilters={columnFilters}
           onColumnFiltersChange={setColumnFilters}
+          onRowClick={(row) => {
+            setSidebarItem({ tab: 'categories', data: row })
+            setSidebarOpen(true)
+          }}
         />
       </TabsContent>
 
@@ -574,8 +595,18 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
           onSortingChange={handleSortingChange}
           columnFilters={columnFilters}
           onColumnFiltersChange={setColumnFilters}
+          onRowClick={(row) => {
+            setSidebarItem({ tab: 'events', data: row })
+            setSidebarOpen(true)
+          }}
         />
       </TabsContent>
+
+      <RowDetailSidebar
+        item={sidebarItem}
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+      />
     </Tabs>
   )
 }

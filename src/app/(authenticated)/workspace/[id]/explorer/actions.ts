@@ -36,9 +36,15 @@ export async function getExplorerData(workspaceId: string) {
       description: t.description,
       amount: t.amount.toNumber(),
       categoryName: t.category?.name ?? null,
+      categoryId: t.categoryId,
       vendorName: t.vendor?.name ?? null,
+      vendorId: t.vendorId,
       source: t.source,
       status: t.status,
+      externalId: t.externalId,
+      confidence: t.confidence,
+      aiReasoning: t.aiReasoning,
+      createdAt: t.createdAt.toISOString(),
     })),
     vendors: vendors.map((v) => ({
       id: v.id,
@@ -68,3 +74,26 @@ export type ExplorerTransaction = ExplorerData['transactions'][number]
 export type ExplorerVendor = ExplorerData['vendors'][number]
 export type ExplorerCategory = ExplorerData['categories'][number]
 export type ExplorerEvent = ExplorerData['events'][number]
+
+export async function getVendorRecentTransactions(vendorId: string) {
+  const transactions = await prisma.transaction.findMany({
+    where: { vendorId },
+    orderBy: { date: 'desc' },
+    take: 5,
+    include: {
+      category: { select: { name: true } },
+    },
+  })
+
+  return transactions.map((t) => ({
+    id: t.id,
+    date: t.date.toISOString(),
+    description: t.description,
+    amount: t.amount.toNumber(),
+    categoryName: t.category?.name ?? null,
+    source: t.source,
+    status: t.status,
+  }))
+}
+
+export type VendorRecentTransaction = Awaited<ReturnType<typeof getVendorRecentTransactions>>[number]
