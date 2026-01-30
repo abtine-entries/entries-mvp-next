@@ -12,6 +12,9 @@ export type WorkspaceWithCounts = {
   pendingCount: number
   newEventCount: number
   connectors: ConnectorType[]
+  requiresActionCount: number
+  fyiCount: number
+  qboStatus: string
 }
 
 export type RecentActivityEvent = {
@@ -51,6 +54,15 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
         },
         select: { id: true },
       },
+      alerts: {
+        where: {
+          OR: [
+            { status: 'active' },
+            { status: 'snoozed', snoozedUntil: { lte: new Date() } },
+          ],
+        },
+        select: { id: true, priority: true },
+      },
     },
   })
 
@@ -59,6 +71,13 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
     // For now, use mock data based on workspace name until we add the schema field
     const connectors = getWorkspaceConnectors(workspace.name)
 
+    const requiresActionCount = workspace.alerts.filter(
+      (a) => a.priority === 'requires_action'
+    ).length
+    const fyiCount = workspace.alerts.filter(
+      (a) => a.priority !== 'requires_action'
+    ).length
+
     return {
       id: workspace.id,
       name: workspace.name,
@@ -66,6 +85,9 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
       pendingCount: workspace.transactions.length,
       newEventCount: workspace.events.length,
       connectors,
+      requiresActionCount,
+      fyiCount,
+      qboStatus: workspace.qboStatus,
     }
   })
 }

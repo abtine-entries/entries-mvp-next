@@ -1,26 +1,31 @@
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
-function WorkspaceCardSkeleton() {
+function TableRowSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-4 w-24 mt-2" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-4 w-20" />
-      </CardContent>
-    </Card>
+    <div className="flex items-center gap-4 px-4 py-3 border-b border-border last:border-b-0">
+      <Skeleton className="h-4 w-36" />
+      <div className="flex-1" />
+      <Skeleton className="h-5 w-12 rounded-full" />
+      <Skeleton className="h-5 w-12 rounded-full" />
+      <Skeleton className="h-4 w-16" />
+    </div>
   )
 }
 
-export function WorkspaceListSkeleton() {
+export function ClientTableSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <WorkspaceCardSkeleton />
-      <WorkspaceCardSkeleton />
-      <WorkspaceCardSkeleton />
+    <div>
+      {/* Header row */}
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-border">
+        <Skeleton className="h-3 w-20" />
+        <div className="flex-1" />
+        <Skeleton className="h-3 w-10" />
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-3 w-16" />
+      </div>
+      <TableRowSkeleton />
+      <TableRowSkeleton />
+      <TableRowSkeleton />
     </div>
   )
 }

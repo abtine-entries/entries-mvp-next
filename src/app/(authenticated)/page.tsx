@@ -1,36 +1,20 @@
 import { Suspense } from 'react'
 import { getWorkspaces, getRecentActivity, getGlobalAlertsSummary } from './actions'
-import { ClientRow } from './client-row'
-import { WorkspaceListSkeleton } from './workspace-list-skeleton'
+import { ClientTable } from './client-table'
+import { ClientTableSkeleton } from './workspace-list-skeleton'
 import { CreateWorkspaceModal } from './create-workspace-modal'
 import { PageHeader } from '@/components/layout'
 import { HomeGreeting } from './home-greeting'
 import { RecentActivityFeed } from './recent-activity-feed'
 import { AlertsSummary } from './alerts-summary'
-import { Home, Plus, Building2, Activity, Bell } from 'lucide-react'
+import { Home, Plus, Building2, Activity, Sparkles } from 'lucide-react'
 import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
 
 async function ClientList() {
   const workspaces = await getWorkspaces()
 
-  if (workspaces.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">
-          No clients yet. Create your first client workspace to get started.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      {workspaces.map((workspace) => (
-        <ClientRow key={workspace.id} workspace={workspace} />
-      ))}
-    </div>
-  )
+  return <ClientTable workspaces={workspaces} />
 }
 
 async function AlertsBriefing() {
@@ -57,13 +41,13 @@ export default function HomePage() {
           {/* Greeting */}
           <HomeGreeting />
 
-          {/* Alerts Briefing */}
+          {/* Esme Summary */}
           <section>
             <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-4">
-              <Bell className="h-4 w-4" />
-              Alerts
+              <Sparkles className="h-4 w-4" />
+              Esme
             </p>
-            <Suspense fallback={<div className="bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm">Loading alerts...</div>}>
+            <Suspense fallback={<div className="bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm">Loading...</div>}>
               <AlertsBriefing />
             </Suspense>
           </section>
@@ -85,7 +69,7 @@ export default function HomePage() {
               />
             </div>
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <Suspense fallback={<WorkspaceListSkeleton />}>
+              <Suspense fallback={<ClientTableSkeleton />}>
                 <ClientList />
               </Suspense>
             </div>
