@@ -17,8 +17,38 @@ const ESME_REPLIES = [
   "I'll review that and get back to you shortly.",
 ]
 
+const BILL_KEYWORDS = ['bills', 'invoices', 'payable', 'pay', 'payment', 'wise', 'batch']
+
 function pickEsmeReply(): string {
   return ESME_REPLIES[Math.floor(Math.random() * ESME_REPLIES.length)]
+}
+
+function hasBillKeyword(message: string): boolean {
+  const lower = message.toLowerCase()
+  return BILL_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
+async function getBillSummaryReply(workspaceId: string): Promise<string> {
+  const authorizedBills = await prisma.bill.findMany({
+    where: { workspaceId, status: 'authorized' },
+  })
+
+  if (authorizedBills.length === 0) {
+    return 'No authorized bills found at the moment. Check back after your next Xero sync.'
+  }
+
+  const total = authorizedBills.reduce(
+    (sum, b) => sum + b.amount.toNumber(),
+    0
+  )
+  const formattedTotal = total.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  })
+
+  const vendorNames = new Set(authorizedBills.map((b) => b.vendorName))
+
+  return `You have ${authorizedBills.length} authorized bills totaling ${formattedTotal} from ${vendorNames.size} vendors. [View Bills](/workspace/${workspaceId}/bills)`
 }
 
 export async function sendEsmeMessage(
@@ -45,12 +75,16 @@ export async function sendEsmeMessage(
       },
     })
 
-    // Auto-generate Esme acknowledgment reply
+    // Determine reply based on keywords
+    const reply = hasBillKeyword(trimmed)
+      ? await getBillSummaryReply(workspaceId)
+      : pickEsmeReply()
+
     await prisma.esmeMessage.create({
       data: {
         workspaceId,
         role: 'esme',
-        content: pickEsmeReply(),
+        content: reply,
       },
     })
 
