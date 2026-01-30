@@ -48,7 +48,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowUp, ArrowDown, X } from 'lucide-react'
 import type { SerializedBill } from './actions'
-import { createBatchPayment } from './actions'
+import { createBatchPayment, createBatchPaymentDraft } from './actions'
 
 const statusVariant: Record<string, 'success' | 'warning' | 'error' | 'secondary'> = {
   authorized: 'success',
@@ -289,6 +289,51 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
     })
   }, [selectedBills, workspaceId, totalAmount, selectedAuthorizedCount, startTransition])
 
+  const handleCsvExport = useCallback(async () => {
+    // Build CSV content
+    const headers = ['recipientName', 'amount', 'currency', 'invoiceNumber', 'reference']
+    const rows = selectedBills.map((b) => [
+      b.vendorName,
+      b.amount.toString(),
+      b.currency,
+      b.invoiceNumber,
+      `Payment for ${b.invoiceNumber}`,
+    ])
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const today = new Date().toISOString().split('T')[0]
+    const filename = `wise-batch-${today}.csv`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    // Record the export in the database
+    const billInputs = selectedBills.map((b) => ({
+      id: b.id,
+      amount: b.amount,
+      currency: b.currency,
+      vendorName: b.vendorName,
+    }))
+
+    startTransition(async () => {
+      const result = await createBatchPaymentDraft(workspaceId, billInputs, filename)
+      if (result.success) {
+        toast.success('Batch exported as CSV')
+        setSheetOpen(false)
+        setRowSelection({})
+      } else {
+        toast.error(result.error ?? 'Failed to record batch export')
+      }
+    })
+  }, [selectedBills, workspaceId, startTransition])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -434,7 +479,7 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
             <Button className="w-full" onClick={() => setConfirmDialogOpen(true)}>
               Send via Wise
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={handleCsvExport} disabled={isPending}>
               Export CSV
             </Button>
           </SheetFooter>

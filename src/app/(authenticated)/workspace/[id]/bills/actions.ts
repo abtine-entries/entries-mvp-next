@@ -93,3 +93,47 @@ export async function createBatchPayment(
     return { success: false, error: 'Failed to create batch payment' }
   }
 }
+
+export async function createBatchPaymentDraft(
+  workspaceId: string,
+  bills: BillInput[],
+  filename: string
+): Promise<CreateBatchPaymentResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    if (bills.length === 0) {
+      return { success: false, error: 'No bills selected' }
+    }
+
+    const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0)
+
+    const batchPayment = await prisma.batchPayment.create({
+      data: {
+        workspaceId,
+        status: 'draft',
+        totalAmount: new Decimal(totalAmount),
+        currency: 'USD',
+        fileExportPath: filename,
+        items: {
+          create: bills.map((b) => ({
+            billId: b.id,
+            amount: new Decimal(b.amount),
+            currency: b.currency,
+            recipientName: b.vendorName,
+          })),
+        },
+      },
+    })
+
+    revalidatePath(`/workspace/${workspaceId}/bills`)
+
+    return { success: true, batchPaymentId: batchPayment.id }
+  } catch (error) {
+    console.error('Failed to create batch payment draft:', error)
+    return { success: false, error: 'Failed to create batch payment draft' }
+  }
+}
