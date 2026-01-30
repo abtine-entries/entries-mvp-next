@@ -23,6 +23,7 @@ model User {
   eventNotes     EventNote[]
   resolvedAlerts Alert[]     @relation("AlertResolvedBy")
   assignedAlerts Alert[]     @relation("AlertAssignedTo")
+  documents      Document[]
 }
 
 model Workspace {
@@ -45,6 +46,7 @@ model Workspace {
   propertyDefinitions    EventPropertyDefinition[]
   alerts                 Alert[]
   vendors                Vendor[]
+  documents              Document[]
 }
 
 model Category {
@@ -242,4 +244,22 @@ model Vendor {
   transactions Transaction[]
 
   @@unique([workspaceId, normalizedName])
+}
+
+model Document {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  fileName      String
+  fileType      String    // 'pdf', 'csv', 'image', etc.
+  fileSize      Int       // bytes
+  storagePath   String
+  folder        String?
+  parsedContent String?
+  status        String    @default("uploaded") // 'uploaded', 'parsing', 'parsed', 'error'
+  uploadedById  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id])
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
 }
