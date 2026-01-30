@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Sparkles } from 'lucide-react'
-import { EsmeChat } from './esme-chat'
+import { EsmeCanvas } from './esme-canvas'
 import { org } from '@/lib/config'
 import type {
   CanvasBlock,
@@ -184,7 +184,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
           { label: 'Esme', icon: <Sparkles className="h-4 w-4" /> },
         ]}
       />
-      <EsmeChat workspaceId={workspace.id} workspaceName={workspace.name} initialBlocks={blocks} />
+      <EsmeCanvas workspaceId={workspace.id} workspaceName={workspace.name} initialBlocks={blocks} />
     </div>
   )
 }
