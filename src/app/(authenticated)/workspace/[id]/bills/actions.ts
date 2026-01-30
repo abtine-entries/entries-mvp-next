@@ -85,7 +85,32 @@ export async function createBatchPayment(
       data: { status: 'paid' },
     })
 
+    // Log batch payment event
+    const formattedTotal = totalAmount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    })
+    await prisma.event.create({
+      data: {
+        workspaceId,
+        entityType: 'batch_payment',
+        entityId: batchPayment.id,
+        title: `Batch payment submitted — ${bills.length} bills, ${formattedTotal}`,
+      },
+    })
+
+    // Log individual bill payment events
+    await prisma.event.createMany({
+      data: bills.map((b) => ({
+        workspaceId,
+        entityType: 'bill',
+        entityId: b.id,
+        title: `Bill paid — ${b.vendorName} (${b.amount.toLocaleString('en-US', { style: 'currency', currency: b.currency })})`,
+      })),
+    })
+
     revalidatePath(`/workspace/${workspaceId}/bills`)
+    revalidatePath(`/workspace/${workspaceId}/event-feed`)
 
     return { success: true, batchPaymentId: batchPayment.id }
   } catch (error) {
@@ -129,7 +154,22 @@ export async function createBatchPaymentDraft(
       },
     })
 
+    // Log batch payment export event
+    const formattedTotal = totalAmount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    })
+    await prisma.event.create({
+      data: {
+        workspaceId,
+        entityType: 'batch_payment',
+        entityId: batchPayment.id,
+        title: `Batch payment exported as CSV — ${bills.length} bills, ${formattedTotal}`,
+      },
+    })
+
     revalidatePath(`/workspace/${workspaceId}/bills`)
+    revalidatePath(`/workspace/${workspaceId}/event-feed`)
 
     return { success: true, batchPaymentId: batchPayment.id }
   } catch (error) {
