@@ -137,3 +137,39 @@ export async function createBatchPaymentDraft(
     return { success: false, error: 'Failed to create batch payment draft' }
   }
 }
+
+export async function getBatchPayments(workspaceId: string) {
+  const batchPayments = await prisma.batchPayment.findMany({
+    where: { workspaceId },
+    include: {
+      items: {
+        include: {
+          bill: {
+            select: { vendorName: true, invoiceNumber: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return batchPayments.map((bp) => ({
+    id: bp.id,
+    status: bp.status,
+    totalAmount: bp.totalAmount.toNumber(),
+    currency: bp.currency,
+    wiseTransferId: bp.wiseTransferId,
+    fileExportPath: bp.fileExportPath,
+    createdAt: bp.createdAt.toISOString(),
+    items: bp.items.map((item) => ({
+      id: item.id,
+      amount: item.amount.toNumber(),
+      currency: item.currency,
+      recipientName: item.recipientName,
+      vendorName: item.bill.vendorName,
+      invoiceNumber: item.bill.invoiceNumber,
+    })),
+  }))
+}
+
+export type SerializedBatchPayment = Awaited<ReturnType<typeof getBatchPayments>>[number]

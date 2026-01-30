@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Receipt } from 'lucide-react'
 import { org } from '@/lib/config'
-import { getBills } from './actions'
+import { getBills, getBatchPayments } from './actions'
 import { BillsTable } from './bills-table'
+import { PaymentHistory } from './payment-history'
 
 interface BillsPageProps {
   params: Promise<{ id: string }>
@@ -22,7 +23,10 @@ export default async function BillsPage({ params }: BillsPageProps) {
     notFound()
   }
 
-  const bills = await getBills(workspace.id)
+  const [bills, batchPayments] = await Promise.all([
+    getBills(workspace.id),
+    getBatchPayments(workspace.id),
+  ])
 
   return (
     <div className="flex flex-col h-full">
@@ -48,8 +52,9 @@ export default async function BillsPage({ params }: BillsPageProps) {
           },
         ]}
       />
-      <div className="flex-1 px-10 py-6 overflow-auto">
+      <div className="flex-1 px-10 py-6 overflow-auto space-y-8">
         <BillsTable bills={bills} workspaceId={workspace.id} />
+        <PaymentHistory batchPayments={batchPayments} />
       </div>
     </div>
   )
