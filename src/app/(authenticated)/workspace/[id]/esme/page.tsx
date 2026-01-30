@@ -3,8 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Sparkles } from 'lucide-react'
 import { EsmeChat } from './esme-chat'
-import type { SerializedAlert } from './esme-chat'
 import { org } from '@/lib/config'
+import type {
+  CanvasBlock,
+  SerializedAlert,
+  TextBlock,
+  AlertBlock,
+  BriefingBlock,
+  InsightBlock,
+  ActionBlock,
+  UserMessageBlock,
+} from './types'
 
 interface EsmePageProps {
   params: Promise<{ id: string }>
@@ -61,13 +70,110 @@ export default async function EsmePage({ params }: EsmePageProps) {
     }
   }
 
-  const serializedMessages = messages.map((m) => ({
-    id: m.id,
-    role: m.role as 'esme' | 'user',
-    content: m.content,
-    metadata: m.metadata,
-    createdAt: m.createdAt.toISOString(),
-  }))
+  // Parse messages into typed CanvasBlock[]
+  const blocks: CanvasBlock[] = messages.map((m) => {
+    const createdAt = m.createdAt.toISOString()
+    let parsed: Record<string, unknown> | null = null
+    if (m.metadata) {
+      try {
+        parsed = JSON.parse(m.metadata)
+      } catch {
+        // ignore invalid JSON
+      }
+    }
+
+    const blockType = parsed?.blockType as string | undefined
+
+    // User messages
+    if (m.role === 'user') {
+      return {
+        type: 'user_message',
+        id: m.id,
+        content: m.content,
+        createdAt,
+      } satisfies UserMessageBlock
+    }
+
+    // Esme messages — determine block type from metadata
+    switch (blockType) {
+      case 'alert': {
+        const alertId = parsed?.alertId as string | undefined
+        const alert = alertId ? alertsMap[alertId] : undefined
+        if (alert) {
+          return {
+            type: 'alert',
+            id: m.id,
+            content: m.content,
+            alert,
+            createdAt,
+          } satisfies AlertBlock
+        }
+        // Fallback to text if alert not found
+        return {
+          type: 'text',
+          id: m.id,
+          content: m.content,
+          createdAt,
+        } satisfies TextBlock
+      }
+
+      case 'briefing': {
+        return {
+          type: 'briefing',
+          id: m.id,
+          content: m.content,
+          greeting: (parsed?.greeting as string) ?? '',
+          summary: (parsed?.summary as string) ?? '',
+          stats: (parsed?.stats as BriefingBlock['stats']) ?? [],
+          createdAt,
+        } satisfies BriefingBlock
+      }
+
+      case 'insight': {
+        return {
+          type: 'insight',
+          id: m.id,
+          content: m.content,
+          data: (parsed?.data as InsightBlock['data']) ?? undefined,
+          createdAt,
+        } satisfies InsightBlock
+      }
+
+      case 'action': {
+        return {
+          type: 'action',
+          id: m.id,
+          content: m.content,
+          actionType: (parsed?.actionType as string) ?? '',
+          actionData: (parsed?.actionData as ActionBlock['actionData']) ?? undefined,
+          actionStatus: (parsed?.actionStatus as ActionBlock['actionStatus']) ?? 'pending',
+          createdAt,
+        } satisfies ActionBlock
+      }
+
+      default: {
+        // No blockType or unknown blockType — default to text
+        // Also handles legacy messages with alertId but no blockType
+        const alertId = parsed?.alertId as string | undefined
+        const alert = alertId ? alertsMap[alertId] : undefined
+        if (alert) {
+          return {
+            type: 'alert',
+            id: m.id,
+            content: m.content,
+            alert,
+            createdAt,
+          } satisfies AlertBlock
+        }
+        return {
+          type: 'text',
+          id: m.id,
+          content: m.content,
+          createdAt,
+        } satisfies TextBlock
+      }
+    }
+  })
 
   return (
     <div className="flex flex-col h-full">
@@ -78,7 +184,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
           { label: 'Esme', icon: <Sparkles className="h-4 w-4" /> },
         ]}
       />
-      <EsmeChat workspaceId={workspace.id} workspaceName={workspace.name} initialMessages={serializedMessages} alertsMap={alertsMap} />
+      <EsmeChat workspaceId={workspace.id} workspaceName={workspace.name} initialBlocks={blocks} />
     </div>
   )
 }

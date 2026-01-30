@@ -10,32 +10,12 @@ import { sendEsmeMessage } from './actions'
 import { ConfirmResponse } from '../alerts/confirm-response'
 import { SelectResponse } from '../alerts/select-response'
 import { TextResponse } from '../alerts/text-response'
-
-export interface SerializedEsmeMessage {
-  id: string
-  role: 'esme' | 'user'
-  content: string
-  metadata: string | null
-  createdAt: string
-}
-
-export interface SerializedAlert {
-  id: string
-  type: string
-  priority: string
-  status: string
-  title: string
-  body: string
-  responseType: string | null
-  responseOptions: string | null
-  responseValue: string | null
-}
+import type { CanvasBlock, SerializedAlert } from './types'
 
 interface EsmeChatProps {
   workspaceId: string
   workspaceName: string
-  initialMessages: SerializedEsmeMessage[]
-  alertsMap: Record<string, SerializedAlert>
+  initialBlocks: CanvasBlock[]
 }
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -116,20 +96,7 @@ function AlertActionCard({ alert, workspaceId }: { alert: SerializedAlert; works
   )
 }
 
-function getAlertFromMetadata(metadata: string | null, alertsMap: Record<string, SerializedAlert>): SerializedAlert | null {
-  if (!metadata) return null
-  try {
-    const parsed = JSON.parse(metadata)
-    if (parsed.alertId && alertsMap[parsed.alertId]) {
-      return alertsMap[parsed.alertId]
-    }
-  } catch {
-    // ignore invalid JSON
-  }
-  return null
-}
-
-export function EsmeChat({ workspaceId, workspaceName, initialMessages, alertsMap }: EsmeChatProps) {
+export function EsmeChat({ workspaceId, workspaceName, initialBlocks }: EsmeChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
@@ -138,7 +105,7 @@ export function EsmeChat({ workspaceId, workspaceName, initialMessages, alertsMa
   // Auto-scroll to newest message on load and when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [initialMessages])
+  }, [initialBlocks])
 
   function handleSubmit() {
     const trimmed = input.trim()
@@ -179,7 +146,7 @@ export function EsmeChat({ workspaceId, workspaceName, initialMessages, alertsMa
       {/* Scrollable message list */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-6 space-y-5">
-          {initialMessages.length === 0 ? (
+          {initialBlocks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold mb-3">
                 E
@@ -190,34 +157,44 @@ export function EsmeChat({ workspaceId, workspaceName, initialMessages, alertsMa
               </p>
             </div>
           ) : (
-            initialMessages.map((message) => {
-              const alert = message.role === 'esme' ? getAlertFromMetadata(message.metadata, alertsMap) : null
-
-              if (message.role === 'user') {
+            initialBlocks.map((block) => {
+              if (block.type === 'user_message') {
                 return (
-                  <div key={message.id} className="flex gap-3 justify-end">
+                  <div key={block.id} className="flex gap-3 justify-end">
                     <div className="max-w-[80%] space-y-1 items-end">
                       <div className="rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap bg-muted">
-                        {message.content}
+                        {block.content}
                       </div>
                       <p className="text-xs text-muted-foreground px-1">
-                        {formatRelativeTime(message.createdAt)}
+                        {formatRelativeTime(block.createdAt)}
                       </p>
                     </div>
                   </div>
                 )
               }
 
-              return (
-                <div key={message.id} className="space-y-1">
-                  <div className="text-sm whitespace-pre-wrap">
-                    {message.content}
+              if (block.type === 'alert') {
+                return (
+                  <div key={block.id} className="space-y-1">
+                    <div className="text-sm whitespace-pre-wrap">
+                      {block.content}
+                    </div>
+                    <AlertActionCard alert={block.alert} workspaceId={workspaceId} />
+                    <p className="text-xs text-muted-foreground">
+                      {formatRelativeTime(block.createdAt)}
+                    </p>
                   </div>
-                  {alert && (
-                    <AlertActionCard alert={alert} workspaceId={workspaceId} />
-                  )}
+                )
+              }
+
+              // Default: text block (and future block types will fall through here for now)
+              return (
+                <div key={block.id} className="space-y-1">
+                  <div className="text-sm whitespace-pre-wrap">
+                    {block.content}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {formatRelativeTime(message.createdAt)}
+                    {formatRelativeTime(block.createdAt)}
                   </p>
                 </div>
               )
