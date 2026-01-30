@@ -50,6 +50,8 @@ model Workspace {
   documents              Document[]
   esmeMessages           EsmeMessage[]
   esmeConfidences        EsmeConfidence[]
+  bills                  Bill[]
+  batchPayments          BatchPayment[]
 }
 
 model Category {
@@ -113,14 +115,14 @@ model Rule {
   workspaceId     String
   ruleText        String
   parsedCondition String   // JSON stored as string (SQLite doesn't have native JSON type)
-  categoryId      String
+  categoryId      String?
   isActive        Boolean  @default(true)
   matchCount      Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
-  category        Category  @relation(fields: [categoryId], references: [id])
+  category        Category? @relation(fields: [categoryId], references: [id])
 }
 
 model Anomaly {
@@ -295,4 +297,49 @@ model EsmeConfidence {
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
 
   @@unique([workspaceId, patternType, patternKey])
+}
+
+model Bill {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  vendorName    String
+  invoiceNumber String
+  dueDate       DateTime
+  amount        Decimal
+  currency      String   @default("USD")
+  status        String   @default("authorized") // 'authorized' | 'pending' | 'paid' | 'overdue'
+  xeroId        String
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id])
+  batchPaymentItems BatchPaymentItem[]
+}
+
+model BatchPayment {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  status          String   @default("draft") // 'draft' | 'submitted' | 'processing' | 'completed' | 'failed'
+  totalAmount     Decimal
+  currency        String   @default("USD")
+  wiseTransferId  String?
+  fileExportPath  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id])
+  items     BatchPaymentItem[]
+}
+
+model BatchPaymentItem {
+  id             String  @id @default(cuid())
+  batchPaymentId String
+  billId         String
+  amount         Decimal
+  currency       String  @default("USD")
+  recipientName  String
+
+  batchPayment BatchPayment @relation(fields: [batchPaymentId], references: [id])
+  bill         Bill         @relation(fields: [billId], references: [id])
 }
