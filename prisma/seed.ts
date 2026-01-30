@@ -748,6 +748,87 @@ async function main() {
   const esmeMessageCount = await prisma.esmeMessage.count()
   console.log(`✅ Created ${esmeMessageCount} Esme messages across workspaces`)
 
+  // Create sample Document records for each workspace
+  const sampleDocuments = [
+    {
+      fileName: 'Chase Bank Statement - January 2024.pdf',
+      fileType: 'pdf',
+      fileSize: 250880, // ~245 KB
+      storagePath: '/uploads/chase-bank-statement-jan-2024.pdf',
+      folder: 'Bank Statements',
+      parsedContent: 'Chase Business Checking - Statement Period: Jan 1-31, 2024. 47 transactions totaling $24,500.',
+      status: 'parsed',
+    },
+    {
+      fileName: 'Receipt - Office Depot #12345.pdf',
+      fileType: 'pdf',
+      fileSize: 91136, // ~89 KB
+      storagePath: '/uploads/receipt-office-depot-12345.pdf',
+      folder: 'Receipts',
+      parsedContent: 'Office Depot Receipt - Order #12345 - $450.00 - Office Supplies',
+      status: 'parsed',
+    },
+    {
+      fileName: 'Invoice #1042 - Client ABC Inc.pdf',
+      fileType: 'pdf',
+      fileSize: 159744, // ~156 KB
+      storagePath: '/uploads/invoice-1042-abc-inc.pdf',
+      folder: 'Invoices',
+      parsedContent: null,
+      status: 'uploaded',
+    },
+    {
+      fileName: 'AWS Receipt - December 2023.pdf',
+      fileType: 'pdf',
+      fileSize: 114688, // ~112 KB
+      storagePath: '/uploads/aws-receipt-dec-2023.pdf',
+      folder: 'Receipts',
+      parsedContent: null,
+      status: 'parsing',
+    },
+    {
+      fileName: 'Employee W2 Scan.png',
+      fileType: 'image',
+      fileSize: 2048000, // ~2 MB
+      storagePath: '/uploads/employee-w2-scan.png',
+      folder: null,
+      parsedContent: null,
+      status: 'error',
+    },
+    {
+      fileName: 'Q4 Expense Report.csv',
+      fileType: 'csv',
+      fileSize: 45056, // ~44 KB
+      storagePath: '/uploads/q4-expense-report.csv',
+      folder: 'Reports',
+      parsedContent: 'Quarterly expense report with 128 line items.',
+      status: 'parsed',
+    },
+  ]
+
+  for (const ws of [workspace1, workspace2]) {
+    for (let i = 0; i < sampleDocuments.length; i++) {
+      const doc = sampleDocuments[i]
+      await prisma.document.create({
+        data: {
+          workspaceId: ws.id,
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          fileSize: doc.fileSize,
+          storagePath: doc.storagePath,
+          folder: doc.folder,
+          parsedContent: doc.parsedContent,
+          status: doc.status,
+          uploadedById: user.id,
+          createdAt: new Date(Date.now() - (sampleDocuments.length - i) * 24 * 60 * 60 * 1000),
+        },
+      })
+    }
+  }
+
+  const documentCount = await prisma.document.count()
+  console.log(`✅ Created ${documentCount} sample documents across workspaces`)
+
   // Summary
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
@@ -759,6 +840,7 @@ async function main() {
   const eventCount = await prisma.event.count()
   const finalAlertCount = await prisma.alert.count()
   const finalEsmeMessageCount = await prisma.esmeMessage.count()
+  const finalDocumentCount = await prisma.document.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
@@ -771,6 +853,7 @@ async function main() {
   console.log(`   Events: ${eventCount}`)
   console.log(`   Alerts: ${finalAlertCount}`)
   console.log(`   Esme Messages: ${finalEsmeMessageCount}`)
+  console.log(`   Documents: ${finalDocumentCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 

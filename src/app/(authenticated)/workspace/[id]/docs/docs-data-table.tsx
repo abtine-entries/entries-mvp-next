@@ -1,10 +1,11 @@
 'use client'
 
 import { DataTable } from '@/components/ui/data-table'
-import { columns, type DocItem } from './columns'
+import { columns } from './columns'
+import type { SerializedDocument } from './actions'
 
 interface DocsDataTableProps {
-  data: DocItem[]
+  data: SerializedDocument[]
 }
 
 export function DocsDataTable({ data }: DocsDataTableProps) {
@@ -12,7 +13,7 @@ export function DocsDataTable({ data }: DocsDataTableProps) {
     <DataTable
       columns={columns}
       data={data}
-      emptyMessage="No documents uploaded yet."
+      emptyMessage="No documents uploaded yet. Drag and drop files here or click Upload."
     />
   )
 }
