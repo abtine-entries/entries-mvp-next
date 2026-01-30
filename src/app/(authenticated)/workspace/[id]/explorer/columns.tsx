@@ -3,7 +3,7 @@
 import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import type {
   ExplorerTransaction,
   ExplorerVendor,
@@ -39,13 +39,14 @@ function formatDateTime(iso: string): string {
 
 function SortableHeader({ label, column }: { label: string; column: { toggleSorting: (desc?: boolean) => void; getIsSorted: () => false | 'asc' | 'desc' } }) {
   const sorted = column.getIsSorted()
+  const Icon = sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ArrowUpDown
   return (
     <button
       className="flex items-center gap-1 hover:text-foreground transition-colors"
       onClick={() => column.toggleSorting(sorted === 'asc')}
     >
       {label}
-      <ArrowUpDown className={cn('h-3.5 w-3.5', sorted ? 'text-foreground' : 'text-muted-foreground/50')} />
+      <Icon className={cn('h-3.5 w-3.5', sorted ? 'text-foreground' : 'text-muted-foreground/50')} />
     </button>
   )
 }
