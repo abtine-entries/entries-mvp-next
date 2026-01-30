@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { revalidatePath } from 'next/cache'
 
 export async function getCategorizeData(workspaceId: string) {
   const [transactions, categories] = await Promise.all([
@@ -45,6 +46,21 @@ export async function getCategorizeData(workspaceId: string) {
       transactionCount: c._count.transactions,
     })),
   }
+}
+
+export async function updateTransactionCategory(
+  transactionId: string,
+  categoryId: string | null,
+  workspaceId: string
+) {
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { categoryId },
+  })
+
+  revalidatePath(`/workspace/${workspaceId}/categorize`)
+
+  return { success: true }
 }
 
 export type CategorizeData = Awaited<ReturnType<typeof getCategorizeData>>

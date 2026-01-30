@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, Suspense } from 'react'
+import { useState, useMemo, useCallback, useTransition, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
   useReactTable,
@@ -26,12 +26,16 @@ import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, ArrowUp, ArrowDown, ArrowUpDown, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { updateTransactionCategory } from './actions'
 import type { CategorizeData, CategorizeTransaction, CategorizeCategory } from './actions'
 
 const PAGE_SIZE = 25
@@ -93,78 +97,161 @@ function SortableHeader({ column, children }: { column: { getIsSorted: () => fal
   )
 }
 
-// --- Transaction table columns ---
-const transactionColumns: ColumnDef<CategorizeTransaction, unknown>[] = [
-  {
-    accessorKey: 'date',
-    header: ({ column }) => <SortableHeader column={column}>Date</SortableHeader>,
-    size: 90,
-    sortingFn: (rowA, rowB) => {
-      const a = new Date(rowA.original.date).getTime()
-      const b = new Date(rowB.original.date).getTime()
-      return a - b
-    },
-    cell: ({ row }) => (
-      <div className="text-sm text-muted-foreground">
-        {formatDate(row.original.date)}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'description',
-    header: ({ column }) => <SortableHeader column={column}>Description</SortableHeader>,
-    cell: ({ row }) => (
-      <div className="text-sm truncate max-w-[200px]">{row.original.description}</div>
-    ),
-  },
-  {
-    accessorKey: 'amount',
-    header: ({ column }) => (
-      <div className="text-right">
-        <SortableHeader column={column}>Amount</SortableHeader>
-      </div>
-    ),
-    size: 110,
-    cell: ({ row }) => {
-      const amount = row.original.amount
-      return (
-        <div className={cn('text-right text-sm font-mono', amount < 0 ? 'text-red-400' : 'text-green-400')}>
-          {formatAmount(amount)}
+// --- Inline category dropdown ---
+function CategoryDropdown({
+  transaction,
+  categories,
+  onCategoryChange,
+}: {
+  transaction: CategorizeTransaction
+  categories: CategorizeCategory[]
+  onCategoryChange: (transactionId: string, categoryId: string | null, categoryName: string | null) => void
+}) {
+  // Group categories by type
+  const grouped = useMemo(() => {
+    const groups: Record<string, CategorizeCategory[]> = {}
+    for (const c of categories) {
+      if (!groups[c.type]) groups[c.type] = []
+      groups[c.type].push(c)
+    }
+    return groups
+  }, [categories])
+
+  const typeLabels: Record<string, string> = {
+    expense: 'Expenses',
+    income: 'Income',
+    asset: 'Assets',
+    liability: 'Liabilities',
+  }
+  const typeOrder = ['expense', 'income', 'asset', 'liability']
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Select
+        value={transaction.categoryId ?? '__none__'}
+        onValueChange={(value) => {
+          const newCategoryId = value === '__none__' ? null : value
+          const newCategoryName = newCategoryId
+            ? categories.find((c) => c.id === newCategoryId)?.name ?? null
+            : null
+          onCategoryChange(transaction.id, newCategoryId, newCategoryName)
+        }}
+      >
+        <SelectTrigger
+          size="sm"
+          className={cn(
+            'h-7 min-w-[120px] max-w-[160px] text-xs',
+            !transaction.categoryId && 'text-yellow-400 border-yellow-500/30'
+          )}
+        >
+          <SelectValue placeholder="Select category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none__">
+            <span className="text-yellow-400">Uncategorized</span>
+          </SelectItem>
+          {typeOrder.map((type) => {
+            const items = grouped[type]
+            if (!items || items.length === 0) return null
+            return (
+              <SelectGroup key={type}>
+                <SelectLabel>{typeLabels[type] ?? type}</SelectLabel>
+                {items.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )
+          })}
+        </SelectContent>
+      </Select>
+      {transaction.aiReasoning && (
+        <span title="AI-suggested category">
+          <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
+        </span>
+      )}
+    </div>
+  )
+}
+
+// --- Transaction table column factory ---
+function createTransactionColumns(
+  categories: CategorizeCategory[],
+  onCategoryChange: (transactionId: string, categoryId: string | null, categoryName: string | null) => void,
+): ColumnDef<CategorizeTransaction, unknown>[] {
+  return [
+    {
+      accessorKey: 'date',
+      header: ({ column }) => <SortableHeader column={column}>Date</SortableHeader>,
+      size: 90,
+      sortingFn: (rowA, rowB) => {
+        const a = new Date(rowA.original.date).getTime()
+        const b = new Date(rowB.original.date).getTime()
+        return a - b
+      },
+      cell: ({ row }) => (
+        <div className="text-sm text-muted-foreground">
+          {formatDate(row.original.date)}
         </div>
-      )
+      ),
     },
-  },
-  {
-    accessorKey: 'categoryName',
-    header: ({ column }) => <SortableHeader column={column}>Category</SortableHeader>,
-    size: 130,
-    cell: ({ row }) => {
-      const categoryName = row.original.categoryName
-      if (!categoryName) {
-        return <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-500/30">Uncategorized</Badge>
-      }
-      return <span className="text-sm">{categoryName}</span>
+    {
+      accessorKey: 'description',
+      header: ({ column }) => <SortableHeader column={column}>Description</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="text-sm truncate max-w-[200px]">{row.original.description}</div>
+      ),
     },
-  },
-  {
-    accessorKey: 'status',
-    header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
-    size: 100,
-    cell: ({ row }) => {
-      const status = row.original.status
-      const variants: Record<string, string> = {
-        unmatched: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-        matched: 'bg-green-500/10 text-green-400 border-green-500/30',
-        pending: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-      }
-      return (
-        <Badge variant="outline" className={cn('text-xs capitalize', variants[status])}>
-          {status}
-        </Badge>
-      )
+    {
+      accessorKey: 'amount',
+      header: ({ column }) => (
+        <div className="text-right">
+          <SortableHeader column={column}>Amount</SortableHeader>
+        </div>
+      ),
+      size: 110,
+      cell: ({ row }) => {
+        const amount = row.original.amount
+        return (
+          <div className={cn('text-right text-sm font-mono', amount < 0 ? 'text-red-400' : 'text-green-400')}>
+            {formatAmount(amount)}
+          </div>
+        )
+      },
     },
-  },
-]
+    {
+      accessorKey: 'categoryName',
+      header: ({ column }) => <SortableHeader column={column}>Category</SortableHeader>,
+      size: 180,
+      cell: ({ row }) => (
+        <CategoryDropdown
+          transaction={row.original}
+          categories={categories}
+          onCategoryChange={onCategoryChange}
+        />
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
+      size: 100,
+      cell: ({ row }) => {
+        const status = row.original.status
+        const variants: Record<string, string> = {
+          unmatched: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+          matched: 'bg-green-500/10 text-green-400 border-green-500/30',
+          pending: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+        }
+        return (
+          <Badge variant="outline" className={cn('text-xs capitalize', variants[status])}>
+            {status}
+          </Badge>
+        )
+      },
+    },
+  ]
+}
 
 // --- Category tree item ---
 interface CategoryTreeNode {
@@ -402,6 +489,7 @@ function FilterBar({
 // --- Main split view ---
 interface CategorizeSplitViewProps {
   data: CategorizeData
+  workspaceId: string
 }
 
 export function CategorizeSplitView(props: CategorizeSplitViewProps) {
@@ -412,7 +500,8 @@ export function CategorizeSplitView(props: CategorizeSplitViewProps) {
   )
 }
 
-function CategorizeSplitViewInner({ data }: CategorizeSplitViewProps) {
+function CategorizeSplitViewInner({ data, workspaceId }: CategorizeSplitViewProps) {
+  const [isPending, startTransition] = useTransition()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -431,6 +520,67 @@ function CategorizeSplitViewInner({ data }: CategorizeSplitViewProps) {
   const [source, setSource] = useState(initialSource)
   const [sorting, setSorting] = useState<SortingState>(
     initialSortId ? [{ id: initialSortId, desc: initialSortDesc }] : []
+  )
+
+  // Optimistic category overrides: transactionId -> { categoryId, categoryName }
+  const [categoryOverrides, setCategoryOverrides] = useState<
+    Record<string, { categoryId: string | null; categoryName: string | null }>
+  >({})
+
+  // Apply category overrides to transactions
+  const transactions = useMemo(() => {
+    return data.transactions.map((t) => {
+      const override = categoryOverrides[t.id]
+      if (override) {
+        return {
+          ...t,
+          categoryId: override.categoryId,
+          categoryName: override.categoryName,
+          categoryType: override.categoryId
+            ? data.categories.find((c) => c.id === override.categoryId)?.type ?? t.categoryType
+            : null,
+        }
+      }
+      return t
+    })
+  }, [data.transactions, data.categories, categoryOverrides])
+
+  // Handle category change with optimistic update
+  const handleCategoryChange = useCallback(
+    (transactionId: string, categoryId: string | null, categoryName: string | null) => {
+      // Optimistic update
+      setCategoryOverrides((prev) => ({
+        ...prev,
+        [transactionId]: { categoryId, categoryName },
+      }))
+
+      // Call server action
+      startTransition(async () => {
+        try {
+          await updateTransactionCategory(transactionId, categoryId, workspaceId)
+          toast.success(
+            categoryName
+              ? `Category changed to "${categoryName}"`
+              : 'Category removed'
+          )
+        } catch {
+          // Revert optimistic update on error
+          setCategoryOverrides((prev) => {
+            const next = { ...prev }
+            delete next[transactionId]
+            return next
+          })
+          toast.error('Failed to update category')
+        }
+      })
+    },
+    [workspaceId, startTransition]
+  )
+
+  // Create columns with category dropdown
+  const transactionColumns = useMemo(
+    () => createTransactionColumns(data.categories, handleCategoryChange),
+    [data.categories, handleCategoryChange]
   )
 
   // URL update helper
@@ -503,7 +653,7 @@ function CategorizeSplitViewInner({ data }: CategorizeSplitViewProps) {
 
   // Apply pre-filters
   const filteredTransactions = useMemo(() => {
-    let filtered = data.transactions
+    let filtered = transactions
     const rangeStart = getDateRangeStart(dateRange)
     if (rangeStart) {
       filtered = filtered.filter((t) => new Date(t.date) >= rangeStart)
@@ -517,7 +667,7 @@ function CategorizeSplitViewInner({ data }: CategorizeSplitViewProps) {
       filtered = filtered.filter((t) => t.source === source)
     }
     return filtered
-  }, [data.transactions, dateRange, catStatus, source])
+  }, [transactions, dateRange, catStatus, source])
 
   // Sort uncategorized first
   const sortedTransactions = useMemo(() => {

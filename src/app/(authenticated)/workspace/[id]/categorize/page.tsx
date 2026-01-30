@@ -34,7 +34,7 @@ export default async function CategorizePage({ params }: CategorizePageProps) {
         ]}
       />
       <div className="flex-1 px-10 py-6 overflow-hidden">
-        <CategorizeSplitView data={data} />
+        <CategorizeSplitView data={data} workspaceId={workspace.id} />
       </div>
     </div>
   )
