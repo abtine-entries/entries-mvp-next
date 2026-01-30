@@ -37,6 +37,8 @@ const vendorsByCategory: Record<string, string[]> = {
   'Professional Services': ['Smith & Associates CPA', 'Legal Counsel LLC'],
   'Sales Revenue': ['Customer Payment', 'Stripe Payment'],
   'Service Revenue': ['Consulting Fee', 'Client Retainer'],
+  'Accounts Receivable': ['Client Invoice', 'Pending Collection'],
+  'Accounts Payable': ['Vendor Invoice', 'Supplier Payment'],
 }
 
 // Generate a random date within the last 3 months
@@ -60,15 +62,19 @@ function generateExternalId(source: string, index: number): string {
 async function main() {
   console.log('🌱 Starting seed...')
 
-  // Clean up existing data
+  // Clean up existing data (order matters for foreign key constraints)
   await prisma.alert.deleteMany()
+  await prisma.eventNote.deleteMany()
+  await prisma.eventProperty.deleteMany()
   await prisma.event.deleteMany()
   await prisma.auditLog.deleteMany()
   await prisma.anomaly.deleteMany()
   await prisma.match.deleteMany()
   await prisma.rule.deleteMany()
   await prisma.transaction.deleteMany()
+  await prisma.vendor.deleteMany()
   await prisma.category.deleteMany()
+  await prisma.eventPropertyDefinition.deleteMany()
   await prisma.workspace.deleteMany()
   await prisma.user.deleteMany()
 
@@ -128,6 +134,42 @@ async function main() {
 
   console.log('✅ Created 10 categories per workspace')
 
+  // Create vendors for each workspace
+  // vendorMap: workspaceId -> normalizedName -> Vendor record
+  const vendorMap: Record<string, Record<string, { id: string; name: string }>> = {
+    [workspace1.id]: {},
+    [workspace2.id]: {},
+  }
+
+  for (const ws of [workspace1, workspace2]) {
+    // Collect all unique vendor names from vendorsByCategory
+    const uniqueVendors = new Set<string>()
+    for (const names of Object.values(vendorsByCategory)) {
+      for (const name of names) {
+        uniqueVendors.add(name)
+      }
+    }
+
+    for (const vendorName of uniqueVendors) {
+      const normalizedName = vendorName.toLowerCase().trim()
+      const now = new Date()
+      const created = await prisma.vendor.create({
+        data: {
+          workspaceId: ws.id,
+          name: vendorName,
+          normalizedName,
+          totalSpend: new Decimal(0),
+          transactionCount: 0,
+          firstSeen: now,
+          lastSeen: now,
+        },
+      })
+      vendorMap[ws.id][normalizedName] = { id: created.id, name: created.name }
+    }
+  }
+
+  console.log('✅ Created vendors for each workspace')
+
   // Create transactions for each workspace
   for (const ws of [workspace1, workspace2]) {
     let txnIndex = 0
@@ -141,6 +183,8 @@ async function main() {
       // Create 5-6 transactions per category
       for (let i = 0; i < (Math.floor(Math.random() * 2) + 5); i++) {
         const vendor = vendors[Math.floor(Math.random() * vendors.length)]
+        const vendorNormalized = vendor.toLowerCase().trim()
+        const vendorRecord = vendorMap[ws.id][vendorNormalized]
         const date = randomDate()
         const amount = randomAmount(
           isIncome ? 500 : 50,
@@ -158,6 +202,7 @@ async function main() {
             description: `${vendor} - ${cat.name}`,
             amount,
             categoryId: categoryMap[ws.id][cat.name],
+            vendorId: vendorRecord?.id ?? null,
             status: 'unmatched',
           },
         })
@@ -184,6 +229,7 @@ async function main() {
             description: `${vendor}`,
             amount: qboAmount,
             categoryId: categoryMap[ws.id][cat.name],
+            vendorId: vendorRecord?.id ?? null,
             status: 'unmatched',
           },
         })
@@ -232,6 +278,42 @@ async function main() {
     }
 
     console.log(`✅ Created 50+ transactions for ${ws.name}`)
+  }
+
+  // Update vendor aggregates (totalSpend, transactionCount, firstSeen, lastSeen)
+  for (const ws of [workspace1, workspace2]) {
+    const vendors = await prisma.vendor.findMany({
+      where: { workspaceId: ws.id },
+    })
+
+    for (const vendor of vendors) {
+      const transactions = await prisma.transaction.findMany({
+        where: { vendorId: vendor.id },
+        orderBy: { date: 'asc' },
+      })
+
+      if (transactions.length > 0) {
+        // Sum absolute amounts for totalSpend
+        const totalSpend = transactions.reduce(
+          (sum, txn) => sum.plus(txn.amount.abs()),
+          new Decimal(0)
+        )
+        const firstSeen = transactions[0].date
+        const lastSeen = transactions[transactions.length - 1].date
+
+        await prisma.vendor.update({
+          where: { id: vendor.id },
+          data: {
+            totalSpend,
+            transactionCount: transactions.length,
+            firstSeen,
+            lastSeen,
+          },
+        })
+      }
+    }
+
+    console.log(`✅ Updated vendor aggregates for ${ws.name}`)
   }
 
   // Create Event records for all transactions
@@ -584,6 +666,7 @@ async function main() {
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
   const categoryCount = await prisma.category.count()
+  const vendorCount = await prisma.vendor.count()
   const transactionCount = await prisma.transaction.count()
   const matchCount = await prisma.match.count()
   const anomalyCount = await prisma.anomaly.count()
@@ -594,6 +677,7 @@ async function main() {
   console.log(`   Users: ${userCount}`)
   console.log(`   Workspaces: ${workspaceCount}`)
   console.log(`   Categories: ${categoryCount}`)
+  console.log(`   Vendors: ${vendorCount}`)
   console.log(`   Transactions: ${transactionCount}`)
   console.log(`   Matches: ${matchCount}`)
   console.log(`   Anomalies: ${anomalyCount}`)
