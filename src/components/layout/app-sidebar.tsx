@@ -6,14 +6,14 @@ import { usePathname } from 'next/navigation'
 import {
   Home,
   Activity,
-  Bell,
   Plug,
   FileText,
   Sparkles,
-
+  Table2,
   Tags,
   BookOpen,
   Search,
+  Settings,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -53,17 +53,16 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
     {
       title: 'Data',
       items: [
-        { label: 'Alerts', href: `/workspace/${workspaceId}/alerts`, icon: Bell },
         { label: 'Event Feed', href: `/workspace/${workspaceId}/event-feed`, icon: Activity },
         { label: 'Data Connectors', href: `/workspace/${workspaceId}/connectors`, icon: Plug },
         { label: 'Docs', href: `/workspace/${workspaceId}/docs`, icon: FileText },
+        { label: 'Data Explorer', href: `/workspace/${workspaceId}/explorer`, icon: Table2 },
       ],
     },
     {
       title: 'Productivity',
       items: [
-        { label: 'Entries AI', href: `/workspace/${workspaceId}/ai`, icon: Sparkles },
-
+        { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: Sparkles },
         { label: 'Categorize', href: `/workspace/${workspaceId}/categorize`, icon: Tags },
       ],
     },
@@ -71,6 +70,12 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
       title: 'Knowledge',
       items: [
         { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
+      ],
+    },
+    {
+      title: 'Configuration',
+      items: [
+        { label: 'Settings', href: `/workspace/${workspaceId}/settings`, icon: Settings },
       ],
     },
   ]
@@ -139,7 +144,7 @@ export function AppSidebar({ workspaces, user, alertCounts, ...props }: AppSideb
                 <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
                 <SidebarMenu>
                   {section.items.map((item) => {
-                    const badgeCount = item.label === 'Alerts' ? currentAlertCount : 0
+                    const badgeCount = item.label === 'Esme' ? currentAlertCount : 0
                     return (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
