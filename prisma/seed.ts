@@ -63,6 +63,9 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // Clean up existing data (order matters for foreign key constraints)
+  await prisma.batchPaymentItem.deleteMany()
+  await prisma.batchPayment.deleteMany()
+  await prisma.bill.deleteMany()
   await prisma.esmeConfidence.deleteMany()
   await prisma.esmeMessage.deleteMany()
   await prisma.alert.deleteMany()
@@ -318,6 +321,135 @@ async function main() {
 
     console.log(`✅ Updated vendor aggregates for ${ws.name}`)
   }
+
+  // Create sample rules for each workspace
+  // ruleText = concise AI-generated summary shown in the table
+  // parsedCondition = structured data + the original accountant prompt
+  const rulesData = [
+    {
+      ruleText: 'Auto-categorize payroll processors',
+      parsedCondition: JSON.stringify({ prompt: 'Anything from Gusto, ADP, or Paychex is always Payroll. No need to ask me about these.', action: 'categorize', vendors: ['gusto', 'adp', 'paychex'], confidence: 'always' }),
+      categoryName: 'Payroll',
+      isActive: true,
+      matchCount: 24,
+    },
+    {
+      ruleText: 'Office supply vendors to Office Supplies',
+      parsedCondition: JSON.stringify({ prompt: 'Staples and Office Depot purchases go under Office Supplies.', action: 'categorize', vendors: ['staples', 'office depot'] }),
+      categoryName: 'Office Supplies',
+      isActive: true,
+      matchCount: 15,
+    },
+    {
+      ruleText: 'Recurring utilities — auto-handle',
+      parsedCondition: JSON.stringify({ prompt: 'PG&E, AT&T, and Comcast are Utilities. These are recurring and predictable — handle them automatically.', action: 'categorize', vendors: ['pg&e', 'at&t', 'comcast'], confidence: 'always' }),
+      categoryName: 'Utilities',
+      isActive: true,
+      matchCount: 18,
+    },
+    {
+      ruleText: 'Bank service fees to Bank Fees',
+      parsedCondition: JSON.stringify({ prompt: 'Monthly charges from Chase, BofA, or Wells Fargo that look like service fees should be categorized as Bank Fees.', action: 'categorize', vendors: ['chase bank', 'bank of america', 'wells fargo'], description_hint: 'service fee' }),
+      categoryName: 'Bank Fees',
+      isActive: true,
+      matchCount: 12,
+    },
+    {
+      ruleText: 'XYZ Property Management → Rent',
+      parsedCondition: JSON.stringify({ prompt: 'XYZ Property Management is our landlord. Categorize their charges as Rent — it\'s the same amount every month.', action: 'categorize', vendors: ['xyz property management'] }),
+      categoryName: 'Rent',
+      isActive: true,
+      matchCount: 6,
+    },
+    {
+      ruleText: 'Flag transactions over $5,000',
+      parsedCondition: JSON.stringify({ prompt: 'If any single transaction is over $5,000, flag it for my review before doing anything. I want to see those personally.', action: 'notify', condition: 'amount_exceeds', threshold: 5000, priority: 'requires_action' }),
+      categoryName: 'Professional Services',
+      isActive: true,
+      matchCount: 3,
+    },
+    {
+      ruleText: 'New vendors → daily brief',
+      parsedCondition: JSON.stringify({ prompt: 'When you see a new vendor we haven\'t worked with before, add it to my daily brief so I\'m aware. No action needed — just keep me in the loop.', action: 'daily_brief', trigger: 'new_vendor' }),
+      categoryName: 'Office Supplies',
+      isActive: true,
+      matchCount: 7,
+    },
+    {
+      ruleText: 'Detect same-week duplicate charges',
+      parsedCondition: JSON.stringify({ prompt: 'If Acme gets charged by a vendor twice in the same week for the same amount, that\'s probably a duplicate. Flag it immediately.', action: 'alert', trigger: 'duplicate_detection', window: '7d', match: 'same_vendor_same_amount' }),
+      categoryName: 'Bank Fees',
+      isActive: true,
+      matchCount: 2,
+    },
+    {
+      ruleText: 'Stripe payouts → Sales Revenue + link invoices',
+      parsedCondition: JSON.stringify({ prompt: 'Stripe payouts are Sales Revenue. Link each payout to the matching invoice if you can find one.', action: 'categorize_and_link', vendors: ['stripe'], link_to: 'invoice' }),
+      categoryName: 'Sales Revenue',
+      isActive: true,
+      matchCount: 11,
+    },
+    {
+      ruleText: 'Outside counsel — alert on 20%+ increase',
+      parsedCondition: JSON.stringify({ prompt: 'Smith & Associates is our outside counsel. Anything from them is Professional Services. If their monthly bill goes up by more than 20%, let me know.', action: 'categorize_and_monitor', vendors: ['smith & associates', 'legal counsel'], alert_on: 'increase_pct', threshold: 20 }),
+      categoryName: 'Professional Services',
+      isActive: true,
+      matchCount: 8,
+    },
+    {
+      ruleText: 'Amazon: auto under $200, ask above',
+      parsedCondition: JSON.stringify({ prompt: 'Amazon purchases under $200 are usually Office Supplies. Over $200, ask me — those might be equipment or something else.', action: 'categorize_conditional', vendors: ['amazon'], amount_split: 200, below: 'auto', above: 'ask' }),
+      categoryName: 'Office Supplies',
+      isActive: true,
+      matchCount: 9,
+    },
+    {
+      ruleText: 'Monday brief: unmatched txn summary',
+      parsedCondition: JSON.stringify({ prompt: 'Every Monday morning, include a summary of last week\'s unmatched transactions in the daily brief. I like to start the week knowing what\'s open.', action: 'daily_brief', schedule: 'monday', content: 'unmatched_summary' }),
+      categoryName: 'Bank Fees',
+      isActive: true,
+      matchCount: 4,
+    },
+    {
+      ruleText: 'Monitor payroll run rate (±10%)',
+      parsedCondition: JSON.stringify({ prompt: 'Keep an eye on Payroll totals. If the monthly run rate changes by more than 10%, surface it — could mean a new hire or termination we need to book.', action: 'monitor', category: 'payroll', alert_on: 'run_rate_change', threshold: 10 }),
+      categoryName: 'Payroll',
+      isActive: true,
+      matchCount: 1,
+    },
+    {
+      ruleText: 'Late retainers — note + alert after 5 days',
+      parsedCondition: JSON.stringify({ prompt: 'Client retainer payments are Service Revenue. If a retainer payment is late by more than 5 days, add a note and ping me.', action: 'categorize_and_monitor', description_hint: 'retainer', alert_on: 'late_payment', days: 5 }),
+      categoryName: 'Service Revenue',
+      isActive: true,
+      matchCount: 4,
+    },
+    {
+      ruleText: 'AWS charges — paused, pending cost centers',
+      parsedCondition: JSON.stringify({ prompt: 'We used to split AWS charges between R&D and infrastructure. Pausing this for now — just put everything under Professional Services until I sort out the new cost centers.', action: 'categorize', vendors: ['aws'], note: 'paused pending cost center rework' }),
+      categoryName: 'Professional Services',
+      isActive: false,
+      matchCount: 14,
+    },
+  ]
+
+  for (const ws of [workspace1, workspace2]) {
+    for (const rule of rulesData) {
+      await prisma.rule.create({
+        data: {
+          workspaceId: ws.id,
+          ruleText: rule.ruleText,
+          parsedCondition: rule.parsedCondition,
+          categoryId: categoryMap[ws.id][rule.categoryName],
+          isActive: rule.isActive,
+          matchCount: rule.matchCount,
+        },
+      })
+    }
+  }
+
+  const ruleCount = await prisma.rule.count()
+  console.log(`✅ Created ${ruleCount} rules across workspaces`)
 
   // Create Event records for all transactions
   for (const ws of [workspace1, workspace2]) {
@@ -872,6 +1004,60 @@ async function main() {
   const esmeConfidenceCount = await prisma.esmeConfidence.count()
   console.log(`✅ Created ${esmeConfidenceCount} Esme confidence records across workspaces`)
 
+  // Create sample bills for each workspace
+  const billVendors = [
+    'Acme Corp',
+    'CloudHost Ltd',
+    'DesignWorks Studio',
+    'Legal Associates LLP',
+    'Office Supplies Co',
+    'TechStack Inc',
+  ]
+
+  // Status distribution per workspace: 5 authorized, 2 pending, 2 paid, 1 overdue
+  const billStatuses: string[] = [
+    'authorized', 'authorized', 'authorized', 'authorized', 'authorized',
+    'pending', 'pending',
+    'paid', 'paid',
+    'overdue',
+  ]
+
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
+  for (const ws of [workspace1, workspace2]) {
+    for (let i = 0; i < 10; i++) {
+      const vendor = billVendors[i % billVendors.length]
+      const status = billStatuses[i]
+      // Amounts between $500 and $15,000
+      const amount = Math.round((Math.random() * 14500 + 500) * 100) / 100
+      // Spread due dates across current month and next month
+      const dueMonth = i < 5 ? currentMonth : currentMonth + 1
+      const dueDay = Math.floor(Math.random() * 28) + 1
+      const dueDate = new Date(currentYear, dueMonth, dueDay)
+
+      const billIndex = (ws === workspace1 ? 0 : 10) + i + 1
+      const paddedIndex = billIndex.toString().padStart(3, '0')
+
+      await prisma.bill.create({
+        data: {
+          workspaceId: ws.id,
+          vendorName: vendor,
+          invoiceNumber: `INV-${paddedIndex}`,
+          dueDate,
+          amount: new Decimal(amount),
+          currency: 'USD',
+          status,
+          xeroId: `XERO-INV-${paddedIndex}`,
+          description: `${vendor} invoice for services rendered`,
+        },
+      })
+    }
+
+    console.log(`✅ Created 10 bills for ${ws.name}`)
+  }
+
   // Summary
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
@@ -880,11 +1066,13 @@ async function main() {
   const transactionCount = await prisma.transaction.count()
   const matchCount = await prisma.match.count()
   const anomalyCount = await prisma.anomaly.count()
+  const finalRuleCount = await prisma.rule.count()
   const eventCount = await prisma.event.count()
   const finalAlertCount = await prisma.alert.count()
   const finalEsmeMessageCount = await prisma.esmeMessage.count()
   const finalDocumentCount = await prisma.document.count()
   const finalEsmeConfidenceCount = await prisma.esmeConfidence.count()
+  const billCount = await prisma.bill.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
@@ -894,11 +1082,13 @@ async function main() {
   console.log(`   Transactions: ${transactionCount}`)
   console.log(`   Matches: ${matchCount}`)
   console.log(`   Anomalies: ${anomalyCount}`)
+  console.log(`   Rules: ${finalRuleCount}`)
   console.log(`   Events: ${eventCount}`)
   console.log(`   Alerts: ${finalAlertCount}`)
   console.log(`   Esme Messages: ${finalEsmeMessageCount}`)
   console.log(`   Documents: ${finalDocumentCount}`)
   console.log(`   Esme Confidence: ${finalEsmeConfidenceCount}`)
+  console.log(`   Bills: ${billCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 
