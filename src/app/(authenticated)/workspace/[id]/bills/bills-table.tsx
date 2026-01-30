@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, Suspense } from 'react'
+import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
   useReactTable,
@@ -26,9 +26,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ArrowUp, ArrowDown, X } from 'lucide-react'
 import type { SerializedBill } from './actions'
 
 const statusVariant: Record<string, 'success' | 'warning' | 'error' | 'secondary'> = {
@@ -125,6 +134,7 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
   const initialStatus = searchParams.get('status') ?? 'authorized'
   const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const initialSortId = searchParams.get('sortBy') ?? 'dueDate'
   const initialSortDesc = searchParams.get('sortDesc') === 'true'
@@ -195,6 +205,46 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
     getRowId: (row) => row.id,
   })
 
+  // Selected bills for the batch sheet
+  const selectedBills = useMemo(() => {
+    return table
+      .getSelectedRowModel()
+      .rows.map((r) => r.original)
+      .filter((b) => b.status === 'authorized')
+  }, [table, rowSelection]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedAuthorizedCount = selectedBills.length
+  const totalAmount = useMemo(
+    () => selectedBills.reduce((sum, b) => sum + b.amount, 0),
+    [selectedBills]
+  )
+
+  const removeBillFromBatch = useCallback(
+    (billId: string) => {
+      setRowSelection((prev) => {
+        const next = { ...prev }
+        delete next[billId]
+        return next
+      })
+    },
+    []
+  )
+
+  // Close sheet if all bills are removed
+  const handleSheetOpenChange = useCallback(
+    (open: boolean) => {
+      setSheetOpen(open)
+    },
+    []
+  )
+
+  // When selected bills change and sheet is open, close if none left
+  useEffect(() => {
+    if (sheetOpen && selectedAuthorizedCount === 0) {
+      setSheetOpen(false)
+    }
+  }, [sheetOpen, selectedAuthorizedCount])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -210,6 +260,12 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
             ))}
           </SelectContent>
         </Select>
+
+        {selectedAuthorizedCount > 0 && (
+          <Button className="ml-auto" onClick={() => setSheetOpen(true)}>
+            Create Batch ({selectedAuthorizedCount})
+          </Button>
+        )}
       </div>
 
       <Table>
@@ -265,6 +321,79 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
           )}
         </TableBody>
       </Table>
+
+      <Sheet open={sheetOpen} onOpenChange={handleSheetOpenChange}>
+        <SheetContent side="right" className="flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Batch Payment Review</SheetTitle>
+            <SheetDescription>
+              Review selected bills before creating a batch payment.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-auto py-4 space-y-4">
+            {/* Summary */}
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Bills</span>
+                <span className="font-medium">{selectedAuthorizedCount}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Currency</span>
+                <span className="font-medium">USD</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span>Total Amount</span>
+                <span>
+                  {totalAmount.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                  })}
+                </span>
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div className="space-y-2">
+              {selectedBills.map((bill) => (
+                <div
+                  key={bill.id}
+                  className="flex items-center justify-between rounded-lg border p-3 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{bill.vendorName}</p>
+                    <p className="text-muted-foreground text-xs">{bill.invoiceNumber}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-medium">
+                      {bill.amount.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: bill.currency,
+                      })}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => removeBillFromBatch(bill.id)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span className="sr-only">Remove</span>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <SheetFooter className="flex-col gap-2 sm:flex-col">
+            <Button className="w-full">Send via Wise</Button>
+            <Button variant="outline" className="w-full">
+              Export CSV
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
