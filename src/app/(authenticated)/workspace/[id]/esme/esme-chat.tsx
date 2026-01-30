@@ -1,7 +1,11 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { ArrowUp } from 'lucide-react'
+import { toast } from 'sonner'
+import { sendEsmeMessage } from './actions'
 
 export interface SerializedEsmeMessage {
   id: string
@@ -12,6 +16,7 @@ export interface SerializedEsmeMessage {
 }
 
 interface EsmeChatProps {
+  workspaceId: string
   workspaceName: string
   initialMessages: SerializedEsmeMessage[]
 }
@@ -31,13 +36,50 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function EsmeChat({ workspaceName, initialMessages }: EsmeChatProps) {
+export function EsmeChat({ workspaceId, workspaceName, initialMessages }: EsmeChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [input, setInput] = useState('')
+  const [isPending, startTransition] = useTransition()
 
-  // Auto-scroll to newest message on load
+  // Auto-scroll to newest message on load and when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [])
+  }, [initialMessages])
+
+  function handleSubmit() {
+    const trimmed = input.trim()
+    if (!trimmed || isPending) return
+
+    setInput('')
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+
+    startTransition(async () => {
+      const result = await sendEsmeMessage(workspaceId, trimmed)
+      if (!result.success) {
+        toast.error(result.error || 'Failed to send message')
+        setInput(trimmed) // Restore input on failure
+      }
+    })
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
+
+  function handleTextareaChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setInput(e.target.value)
+    // Auto-resize textarea
+    const textarea = e.target
+    textarea.style.height = 'auto'
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -94,6 +136,30 @@ export function EsmeChat({ workspaceName, initialMessages }: EsmeChatProps) {
             ))
           )}
           <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input bar */}
+      <div className="border-t border-border bg-background px-4 py-3">
+        <div className="max-w-2xl mx-auto flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleTextareaChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask Esme anything..."
+            disabled={isPending}
+            rows={1}
+            className="flex-1 resize-none rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          />
+          <Button
+            size="icon"
+            onClick={handleSubmit}
+            disabled={!input.trim() || isPending}
+            className="h-10 w-10 shrink-0 rounded-xl"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

@@ -43,7 +43,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
           { label: 'Esme', icon: <Sparkles className="h-4 w-4" /> },
         ]}
       />
-      <EsmeChat workspaceName={workspace.name} initialMessages={serializedMessages} />
+      <EsmeChat workspaceId={workspace.id} workspaceName={workspace.name} initialMessages={serializedMessages} />
     </div>
   )
 }
