@@ -1,12 +1,15 @@
 'use client'
 
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { AlertTriangle, MessageCircleQuestion, RefreshCw, TrendingUp, Bell, CheckCircle2, Sparkles, DollarSign, Tag, Activity } from 'lucide-react'
 import { ConfirmResponse } from '../alerts/confirm-response'
 import { SelectResponse } from '../alerts/select-response'
 import { TextResponse } from '../alerts/text-response'
-import type { CanvasBlock as CanvasBlockType, SerializedAlert } from './types'
+import type { CanvasBlock as CanvasBlockType, ActionBlock, SerializedAlert } from './types'
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   anomaly: AlertTriangle,
@@ -158,6 +161,33 @@ export function CanvasBlock({ block, workspaceId }: CanvasBlockProps) {
         </div>
       )
 
+    case 'insight':
+      return (
+        <div className="space-y-3 rounded-xl bg-muted/30 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <span>Insight</span>
+          </div>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{block.content}</p>
+          {block.data && block.data.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {block.data.map((item) => (
+                <div key={item.label} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {formatRelativeTime(block.createdAt)}
+          </p>
+        </div>
+      )
+
+    case 'action':
+      return <ActionBlockCard block={block} workspaceId={workspaceId} />
+
     case 'text':
     default:
       return (
@@ -171,4 +201,54 @@ export function CanvasBlock({ block, workspaceId }: CanvasBlockProps) {
         </div>
       )
   }
+}
+
+function ActionBlockCard({ block, workspaceId }: { block: ActionBlock; workspaceId: string }) {
+  const router = useRouter()
+  const [status, setStatus] = useState(block.actionStatus)
+  const [, startTransition] = useTransition()
+
+  const isDone = status === 'completed' || status === 'dismissed'
+
+  function handleAction() {
+    if (isDone) return
+    const target = block.actionData?.href
+    if (target) {
+      router.push(target.replace('{workspaceId}', workspaceId))
+    }
+    startTransition(() => {
+      setStatus('completed')
+    })
+  }
+
+  function handleDismiss() {
+    if (isDone) return
+    startTransition(() => {
+      setStatus('dismissed')
+    })
+  }
+
+  return (
+    <div className={cn('space-y-3 rounded-xl border bg-card p-4', isDone && 'opacity-60')}>
+      <p className="text-sm whitespace-pre-wrap">{block.content}</p>
+      {isDone ? (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-500">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span>{status === 'completed' ? 'Done' : 'Dismissed'}</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={handleAction}>
+            {block.actionData?.label ?? 'View'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleDismiss}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {formatRelativeTime(block.createdAt)}
+      </p>
+    </div>
+  )
 }
