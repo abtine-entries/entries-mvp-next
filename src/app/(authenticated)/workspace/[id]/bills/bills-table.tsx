@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
+import { useState, useMemo, useCallback, useEffect, useTransition, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { toast } from 'sonner'
 import {
   useReactTable,
   getCoreRowModel,
@@ -34,11 +35,20 @@ import {
   SheetDescription,
   SheetFooter,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowUp, ArrowDown, X } from 'lucide-react'
 import type { SerializedBill } from './actions'
+import { createBatchPayment } from './actions'
 
 const statusVariant: Record<string, 'success' | 'warning' | 'error' | 'secondary'> = {
   authorized: 'success',
@@ -135,6 +145,9 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
   const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   const initialSortId = searchParams.get('sortBy') ?? 'dueDate'
   const initialSortDesc = searchParams.get('sortDesc') === 'true'
@@ -244,6 +257,37 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
       setSheetOpen(false)
     }
   }, [sheetOpen, selectedAuthorizedCount])
+
+  const handleWiseSend = useCallback(async () => {
+    setIsSending(true)
+    const billInputs = selectedBills.map((b) => ({
+      id: b.id,
+      amount: b.amount,
+      currency: b.currency,
+      vendorName: b.vendorName,
+    }))
+
+    startTransition(async () => {
+      const result = await createBatchPayment(workspaceId, billInputs)
+      if (result.success) {
+        // Simulate 2-second Wise API processing delay
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        const formattedAmount = totalAmount.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        })
+        toast.success(
+          `Batch payment of ${formattedAmount} sent to ${selectedAuthorizedCount} recipients`
+        )
+        setConfirmDialogOpen(false)
+        setSheetOpen(false)
+        setRowSelection({})
+      } else {
+        toast.error(result.error ?? 'Failed to create batch payment')
+      }
+      setIsSending(false)
+    })
+  }, [selectedBills, workspaceId, totalAmount, selectedAuthorizedCount, startTransition])
 
   return (
     <div className="space-y-4">
@@ -387,13 +431,53 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
           </div>
 
           <SheetFooter className="flex-col gap-2 sm:flex-col">
-            <Button className="w-full">Send via Wise</Button>
+            <Button className="w-full" onClick={() => setConfirmDialogOpen(true)}>
+              Send via Wise
+            </Button>
             <Button variant="outline" className="w-full">
               Export CSV
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Batch Payment</DialogTitle>
+            <DialogDescription>
+              This will initiate transfers to {selectedAuthorizedCount} recipients.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total Amount</span>
+              <span className="font-medium">
+                {totalAmount.toLocaleString('en-US', {
+                  style: 'currency',
+                  currency: 'USD',
+                })}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Recipients</span>
+              <span className="font-medium">{selectedAuthorizedCount}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialogOpen(false)}
+              disabled={isSending}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleWiseSend} disabled={isSending || isPending}>
+              {isSending ? 'Processing…' : 'Confirm & Send'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

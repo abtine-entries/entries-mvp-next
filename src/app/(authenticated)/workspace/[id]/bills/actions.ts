@@ -1,6 +1,9 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
+import { revalidatePath } from 'next/cache'
+import { Decimal } from '@prisma/client/runtime/client'
 
 export async function getBills(workspaceId: string) {
   const bills = await prisma.bill.findMany({
@@ -25,3 +28,68 @@ export async function getBills(workspaceId: string) {
 }
 
 export type SerializedBill = Awaited<ReturnType<typeof getBills>>[number]
+
+export interface CreateBatchPaymentResult {
+  success: boolean
+  error?: string
+  batchPaymentId?: string
+}
+
+interface BillInput {
+  id: string
+  amount: number
+  currency: string
+  vendorName: string
+}
+
+export async function createBatchPayment(
+  workspaceId: string,
+  bills: BillInput[]
+): Promise<CreateBatchPaymentResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    if (bills.length === 0) {
+      return { success: false, error: 'No bills selected' }
+    }
+
+    const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0)
+
+    const batchPayment = await prisma.batchPayment.create({
+      data: {
+        workspaceId,
+        status: 'submitted',
+        totalAmount: new Decimal(totalAmount),
+        currency: 'USD',
+        wiseTransferId: `WISE-${Date.now()}`,
+        items: {
+          create: bills.map((b) => ({
+            billId: b.id,
+            amount: new Decimal(b.amount),
+            currency: b.currency,
+            recipientName: b.vendorName,
+          })),
+        },
+      },
+    })
+
+    // Update bill statuses to 'paid'
+    await prisma.bill.updateMany({
+      where: {
+        id: { in: bills.map((b) => b.id) },
+        workspaceId,
+      },
+      data: { status: 'paid' },
+    })
+
+    revalidatePath(`/workspace/${workspaceId}/bills`)
+
+    return { success: true, batchPaymentId: batchPayment.id }
+  } catch (error) {
+    console.error('Failed to create batch payment:', error)
+    return { success: false, error: 'Failed to create batch payment' }
+  }
+}
