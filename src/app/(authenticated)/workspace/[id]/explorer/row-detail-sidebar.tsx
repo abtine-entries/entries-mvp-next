@@ -368,7 +368,7 @@ export function RowDetailSidebar({ item, open, onOpenChange }: RowDetailSidebarP
           <>
             <SheetHeader>
               <SheetDescription>{getDescription(item)}</SheetDescription>
-              <SheetTitle className="text-lg leading-snug pr-6">{getTitle(item)}</SheetTitle>
+              <SheetTitle className="text-sm leading-snug pr-6">{getTitle(item)}</SheetTitle>
             </SheetHeader>
             <div className="px-4 pb-6">
               {item.tab === 'transactions' && <TransactionDetail transaction={item.data} />}
