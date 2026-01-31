@@ -24,7 +24,7 @@ export function AppShell({ children, workspaces, user, alertCounts }: AppShellPr
   return (
     <SidebarProvider>
       <AppSidebar workspaces={workspaces} user={user} alertCounts={alertCounts} />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset className="min-w-0">{children}</SidebarInset>
     </SidebarProvider>
   )
 }

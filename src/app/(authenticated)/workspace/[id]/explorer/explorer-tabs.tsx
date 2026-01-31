@@ -48,7 +48,7 @@ import { CategoryDetailView } from './category-detail-view'
 import { DocumentDetailView } from '../docs/document-detail-view'
 import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
 import { buildRelationColumns } from '@/components/ui/relation-column-utils'
-import type { ExplorerData, ExplorerTransaction } from './actions'
+import type { ExplorerData, ExplorerTransaction, ExplorerVendor, ExplorerCategory, ExplorerEvent } from './actions'
 import type { RelationColumnRecord, RelationLinksMap } from './relation-actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -319,8 +319,8 @@ interface ExplorerTabsProps {
   bills: SerializedBill[]
   batchPayments: SerializedBatchPayment[]
   workspaceId: string
-  relationColumns: RelationColumnRecord[]
-  relationLinksMap: Record<string, RelationLinksMap>
+  relationColumnsByTable: Record<string, RelationColumnRecord[]>
+  relationLinksMapByTable: Record<string, Record<string, RelationLinksMap>>
 }
 
 export function ExplorerTabs(props: ExplorerTabsProps) {
@@ -331,7 +331,7 @@ export function ExplorerTabs(props: ExplorerTabsProps) {
   )
 }
 
-function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationColumns, relationLinksMap }: ExplorerTabsProps) {
+function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationColumnsByTable, relationLinksMapByTable }: ExplorerTabsProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -551,14 +551,53 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
     }
   }, [handleVendorClick, handleCategoryClick, handleDocumentClick])
 
-  const dynamicRelationColumns = useMemo(
-    () => buildRelationColumns<ExplorerTransaction>(relationColumns, relationLinksMap, workspaceId, handleRelationEntityClick),
-    [relationColumns, relationLinksMap, workspaceId, handleRelationEntityClick]
+  // Build dynamic relation columns per table
+  const txRelCols = relationColumnsByTable['transactions'] ?? []
+  const txRelLinksMap = relationLinksMapByTable['transactions'] ?? {}
+  const dynamicTxRelationColumns = useMemo(
+    () => buildRelationColumns<ExplorerTransaction>(txRelCols, txRelLinksMap, workspaceId, handleRelationEntityClick),
+    [txRelCols, txRelLinksMap, workspaceId, handleRelationEntityClick]
+  )
+
+  const vendorRelCols = relationColumnsByTable['vendors'] ?? []
+  const vendorRelLinksMap = relationLinksMapByTable['vendors'] ?? {}
+  const dynamicVendorRelationColumns = useMemo(
+    () => buildRelationColumns<ExplorerVendor>(vendorRelCols, vendorRelLinksMap, workspaceId, handleRelationEntityClick),
+    [vendorRelCols, vendorRelLinksMap, workspaceId, handleRelationEntityClick]
+  )
+
+  const catRelCols = relationColumnsByTable['categories'] ?? []
+  const catRelLinksMap = relationLinksMapByTable['categories'] ?? {}
+  const dynamicCatRelationColumns = useMemo(
+    () => buildRelationColumns<ExplorerCategory>(catRelCols, catRelLinksMap, workspaceId, handleRelationEntityClick),
+    [catRelCols, catRelLinksMap, workspaceId, handleRelationEntityClick]
+  )
+
+  const eventRelCols = relationColumnsByTable['events'] ?? []
+  const eventRelLinksMap = relationLinksMapByTable['events'] ?? {}
+  const dynamicEventRelationColumns = useMemo(
+    () => buildRelationColumns<ExplorerEvent>(eventRelCols, eventRelLinksMap, workspaceId, handleRelationEntityClick),
+    [eventRelCols, eventRelLinksMap, workspaceId, handleRelationEntityClick]
   )
 
   const mergedTxColumns = useMemo(
-    () => [...txColumns, ...dynamicRelationColumns],
-    [txColumns, dynamicRelationColumns]
+    () => [...txColumns, ...dynamicTxRelationColumns],
+    [txColumns, dynamicTxRelationColumns]
+  )
+
+  const mergedVndrColumns = useMemo(
+    () => [...vndrColumns, ...dynamicVendorRelationColumns],
+    [vndrColumns, dynamicVendorRelationColumns]
+  )
+
+  const mergedCatColumns = useMemo(
+    () => [...catColumns, ...dynamicCatRelationColumns],
+    [catColumns, dynamicCatRelationColumns]
+  )
+
+  const mergedEventColumns = useMemo(
+    () => [...eventColumns, ...dynamicEventRelationColumns],
+    [dynamicEventRelationColumns]
   )
 
   return (
@@ -610,7 +649,7 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
 
       <TabsContent value="vendors">
         <PaginatedTable
-          columns={vndrColumns}
+          columns={mergedVndrColumns}
           data={filteredVendors}
           emptyMessage="No vendors found."
           globalFilter={searchQuery}
@@ -623,12 +662,18 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
             setSidebarItem({ tab: 'vendors', data: row })
             setSidebarOpen(true)
           }}
+          headerExtra={
+            <AddRelationColumnButton
+              workspaceId={workspaceId}
+              sourceTable="vendors"
+            />
+          }
         />
       </TabsContent>
 
       <TabsContent value="categories">
         <PaginatedTable
-          columns={catColumns}
+          columns={mergedCatColumns}
           data={data.categories}
           emptyMessage="No categories found."
           globalFilter={searchQuery}
@@ -641,12 +686,18 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
             setSidebarItem({ tab: 'categories', data: row })
             setSidebarOpen(true)
           }}
+          headerExtra={
+            <AddRelationColumnButton
+              workspaceId={workspaceId}
+              sourceTable="categories"
+            />
+          }
         />
       </TabsContent>
 
       <TabsContent value="events">
         <PaginatedTable
-          columns={eventColumns}
+          columns={mergedEventColumns}
           data={filteredEvents}
           emptyMessage="No events found."
           globalFilter={searchQuery}
@@ -659,6 +710,12 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
             setSidebarItem({ tab: 'events', data: row })
             setSidebarOpen(true)
           }}
+          headerExtra={
+            <AddRelationColumnButton
+              workspaceId={workspaceId}
+              sourceTable="events"
+            />
+          }
         />
       </TabsContent>
 

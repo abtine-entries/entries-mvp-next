@@ -25,24 +25,51 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
     notFound()
   }
 
-  const [data, bills, batchPayments, relationColumns] = await Promise.all([
+  const [data, bills, batchPayments] = await Promise.all([
     getExplorerData(workspace.id),
     getBills(workspace.id),
     getBatchPayments(workspace.id),
-    getRelationColumns(workspace.id, 'transactions'),
   ])
 
-  // Batch-fetch relation links for all transaction IDs per relation column
-  const transactionIds = data.transactions.map((t) => t.id)
-  const relationLinksMap: Record<string, RelationLinksMap> = {}
-  if (relationColumns.length > 0 && transactionIds.length > 0) {
-    const linkResults = await Promise.all(
-      relationColumns.map((col) => getRelationLinks(col.id, transactionIds))
-    )
-    for (let i = 0; i < relationColumns.length; i++) {
-      relationLinksMap[relationColumns[i].id] = linkResults[i]
-    }
+  // Fetch relation columns for all explorer source tables in parallel
+  const sourceTables = ['transactions', 'vendors', 'categories', 'events'] as const
+  const allRelationColumns = await Promise.all(
+    sourceTables.map((t) => getRelationColumns(workspace.id, t))
+  )
+
+  const relationColumnsByTable: Record<string, Awaited<ReturnType<typeof getRelationColumns>>> = {}
+  for (let i = 0; i < sourceTables.length; i++) {
+    relationColumnsByTable[sourceTables[i]] = allRelationColumns[i]
   }
+
+  // Build entity ID maps for each table
+  const entityIdsByTable: Record<string, string[]> = {
+    transactions: data.transactions.map((t) => t.id),
+    vendors: data.vendors.map((v) => v.id),
+    categories: data.categories.map((c) => c.id),
+    events: data.events.map((e) => e.id),
+  }
+
+  // Batch-fetch relation links per table
+  const relationLinksMapByTable: Record<string, Record<string, RelationLinksMap>> = {}
+  await Promise.all(
+    sourceTables.map(async (table) => {
+      const cols = relationColumnsByTable[table]
+      const entityIds = entityIdsByTable[table]
+      if (cols.length > 0 && entityIds.length > 0) {
+        const linkResults = await Promise.all(
+          cols.map((col) => getRelationLinks(col.id, entityIds))
+        )
+        const linksMap: Record<string, RelationLinksMap> = {}
+        for (let i = 0; i < cols.length; i++) {
+          linksMap[cols[i].id] = linkResults[i]
+        }
+        relationLinksMapByTable[table] = linksMap
+      } else {
+        relationLinksMapByTable[table] = {}
+      }
+    })
+  )
 
   return (
     <div className="flex flex-col h-full">
@@ -74,8 +101,8 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
           bills={bills}
           batchPayments={batchPayments}
           workspaceId={workspace.id}
-          relationColumns={relationColumns}
-          relationLinksMap={relationLinksMap}
+          relationColumnsByTable={relationColumnsByTable}
+          relationLinksMapByTable={relationLinksMapByTable}
         />
       </div>
     </div>

@@ -22,6 +22,7 @@ export function buildRelationColumns<TData extends { id: string }>(
         columnId: col.id,
         columnName: col.name,
         workspaceId,
+        isBidirectional: !!col.inverseColumnId,
       }),
     size: 200,
     cell: ({ row }: { row: { original: TData } }) => {

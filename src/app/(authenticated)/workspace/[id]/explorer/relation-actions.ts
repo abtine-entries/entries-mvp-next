@@ -19,13 +19,36 @@ function isValidTable(table: string): table is ValidTable {
   return VALID_TABLES.includes(table as ValidTable)
 }
 
+const TABLE_ROUTES: Record<string, string[]> = {
+  transactions: ['explorer'],
+  vendors: ['explorer'],
+  categories: ['explorer'],
+  events: ['explorer', 'event-feed'],
+  documents: ['docs'],
+  bills: ['bills'],
+  rules: ['rules'],
+}
+
+function revalidateTablePaths(workspaceId: string, tables: string[]) {
+  const routes = new Set<string>()
+  for (const table of tables) {
+    for (const route of TABLE_ROUTES[table] ?? []) {
+      routes.add(route)
+    }
+  }
+  for (const route of routes) {
+    revalidatePath(`/workspace/${workspaceId}/${route}`)
+  }
+}
+
 // --- RelationColumn CRUD ---
 
 export async function createRelationColumn(
   workspaceId: string,
   name: string,
   sourceTable: string,
-  targetTable: string
+  targetTable: string,
+  inverse?: { name: string }
 ) {
   if (!isValidTable(sourceTable)) {
     throw new Error(`Invalid source table: ${sourceTable}`)
@@ -34,16 +57,39 @@ export async function createRelationColumn(
     throw new Error(`Invalid target table: ${targetTable}`)
   }
 
-  const column = await prisma.relationColumn.create({
-    data: {
-      workspaceId,
-      name,
-      sourceTable,
-      targetTable,
-    },
-  })
+  let column;
 
-  revalidatePath(`/workspace/${workspaceId}/explorer`)
+  if (inverse) {
+    const [colA] = await prisma.$transaction(async (tx) => {
+      const a = await tx.relationColumn.create({
+        data: { workspaceId, name, sourceTable, targetTable },
+      })
+      const b = await tx.relationColumn.create({
+        data: {
+          workspaceId,
+          name: inverse.name,
+          sourceTable: targetTable,
+          targetTable: sourceTable,
+        },
+      })
+      await tx.relationColumn.update({
+        where: { id: a.id },
+        data: { inverseColumnId: b.id },
+      })
+      await tx.relationColumn.update({
+        where: { id: b.id },
+        data: { inverseColumnId: a.id },
+      })
+      return [a, b]
+    })
+    column = colA
+  } else {
+    column = await prisma.relationColumn.create({
+      data: { workspaceId, name, sourceTable, targetTable },
+    })
+  }
+
+  revalidateTablePaths(workspaceId, [sourceTable, targetTable])
   return column
 }
 
@@ -74,16 +120,36 @@ export async function updateRelationColumn(
     data: { name },
   })
 
-  revalidatePath(`/workspace/${workspaceId}/explorer`)
+  revalidateTablePaths(workspaceId, [column.sourceTable, column.targetTable])
   return column
 }
 
 export async function deleteRelationColumn(id: string, workspaceId: string) {
-  await prisma.relationColumn.delete({
+  const column = await prisma.relationColumn.findFirst({
     where: { id, workspaceId },
+    select: { id: true, inverseColumnId: true, sourceTable: true, targetTable: true },
   })
 
-  revalidatePath(`/workspace/${workspaceId}/explorer`)
+  if (!column) return
+
+  if (column.inverseColumnId) {
+    await prisma.$transaction(async (tx) => {
+      await tx.relationColumn.update({
+        where: { id: column.id },
+        data: { inverseColumnId: null },
+      })
+      await tx.relationColumn.update({
+        where: { id: column.inverseColumnId! },
+        data: { inverseColumnId: null },
+      })
+      await tx.relationColumn.delete({ where: { id: column.id } })
+      await tx.relationColumn.delete({ where: { id: column.inverseColumnId! } })
+    })
+  } else {
+    await prisma.relationColumn.delete({ where: { id, workspaceId } })
+  }
+
+  revalidateTablePaths(workspaceId, [column.sourceTable, column.targetTable])
 }
 
 // --- RelationLink CRUD ---
@@ -111,10 +177,30 @@ export async function addRelationLink(
 
   const column = await prisma.relationColumn.findUnique({
     where: { id: relationColumnId },
-    select: { workspaceId: true },
+    select: { workspaceId: true, inverseColumnId: true, sourceTable: true, targetTable: true },
   })
+
+  // Mirror link to inverse column if bidirectional
+  if (column?.inverseColumnId) {
+    await prisma.relationLink.upsert({
+      where: {
+        relationColumnId_sourceRecordId_targetRecordId: {
+          relationColumnId: column.inverseColumnId,
+          sourceRecordId: targetRecordId,
+          targetRecordId: sourceRecordId,
+        },
+      },
+      update: {},
+      create: {
+        relationColumnId: column.inverseColumnId,
+        sourceRecordId: targetRecordId,
+        targetRecordId: sourceRecordId,
+      },
+    })
+  }
+
   if (column) {
-    revalidatePath(`/workspace/${column.workspaceId}/explorer`)
+    revalidateTablePaths(column.workspaceId, [column.sourceTable, column.targetTable])
   }
 
   return link
@@ -135,10 +221,22 @@ export async function removeRelationLink(
 
   const column = await prisma.relationColumn.findUnique({
     where: { id: relationColumnId },
-    select: { workspaceId: true },
+    select: { workspaceId: true, inverseColumnId: true, sourceTable: true, targetTable: true },
   })
+
+  // Mirror removal to inverse column if bidirectional
+  if (column?.inverseColumnId) {
+    await prisma.relationLink.deleteMany({
+      where: {
+        relationColumnId: column.inverseColumnId,
+        sourceRecordId: targetRecordId,
+        targetRecordId: sourceRecordId,
+      },
+    })
+  }
+
   if (column) {
-    revalidatePath(`/workspace/${column.workspaceId}/explorer`)
+    revalidateTablePaths(column.workspaceId, [column.sourceTable, column.targetTable])
   }
 }
 

@@ -156,11 +156,15 @@ function BillsTableInner({ bills, workspaceId, onRowClick, relationColumns: relC
   const [isSending, setIsSending] = useState(false)
   const [isPending, startTransition] = useTransition()
 
+  const sortableColumnIds = staticColumns
+    .filter(col => col.enableSorting)
+    .map(col => ('accessorKey' in col ? col.accessorKey : col.id) as string)
   const initialSortId = searchParams.get('sortBy') ?? 'dueDate'
   const initialSortDesc = searchParams.get('sortDesc') === 'true'
-  const [sorting, setSorting] = useState<SortingState>(
-    initialSortId ? [{ id: initialSortId, desc: initialSortDesc }] : [{ id: 'dueDate', desc: false }]
-  )
+  const [sorting, setSorting] = useState<SortingState>([{
+    id: sortableColumnIds.includes(initialSortId) ? initialSortId : 'dueDate',
+    desc: initialSortDesc,
+  }])
 
   const updateParams = useCallback(
     (updates: Record<string, string>) => {

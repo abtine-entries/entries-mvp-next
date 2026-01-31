@@ -29,12 +29,14 @@ interface RelationColumnHeaderProps {
   columnId: string
   columnName: string
   workspaceId: string
+  isBidirectional?: boolean
 }
 
 export function RelationColumnHeader({
   columnId,
   columnName,
   workspaceId,
+  isBidirectional,
 }: RelationColumnHeaderProps) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [name, setName] = useState(columnName)
@@ -127,7 +129,9 @@ export function RelationColumnHeader({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete column</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the column and all its links. Continue?
+              {isBidirectional
+                ? 'This will remove this column, its paired reverse column, and all their links. Continue?'
+                : 'This will remove the column and all its links. Continue?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
