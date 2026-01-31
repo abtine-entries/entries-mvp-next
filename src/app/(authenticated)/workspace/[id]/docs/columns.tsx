@@ -2,6 +2,7 @@
 
 import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   FileText,
   FileSpreadsheet,
@@ -10,9 +11,34 @@ import {
   Clock,
   Upload,
   AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react'
 import { DocRowActions } from './doc-row-actions'
 import type { SerializedDocument } from './actions'
+
+// --- Sortable header (matches explorer pattern) ---
+function SortableHeader({ column, children }: { column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: () => void }; children: React.ReactNode }) {
+  const sorted = column.getIsSorted()
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-ml-3 h-8 data-[state=open]:bg-accent"
+      onClick={() => column.toggleSorting()}
+    >
+      {children}
+      {sorted === 'asc' ? (
+        <ArrowUp className="ml-1 h-3.5 w-3.5" />
+      ) : sorted === 'desc' ? (
+        <ArrowDown className="ml-1 h-3.5 w-3.5" />
+      ) : (
+        <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50" />
+      )}
+    </Button>
+  )
+}
 
 function getFileIcon(fileType: string) {
   switch (fileType) {
@@ -103,7 +129,7 @@ function formatDate(dateStr: string): string {
 export const columns: ColumnDef<SerializedDocument>[] = [
   {
     accessorKey: 'fileName',
-    header: 'File Name',
+    header: ({ column }) => <SortableHeader column={column}>File Name</SortableHeader>,
     cell: ({ row }) => (
       <div className="flex items-center gap-3 min-w-0">
         <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
@@ -120,7 +146,7 @@ export const columns: ColumnDef<SerializedDocument>[] = [
   },
   {
     accessorKey: 'fileType',
-    header: 'Type',
+    header: ({ column }) => <SortableHeader column={column}>Type</SortableHeader>,
     size: 80,
     cell: ({ row }) => (
       <Badge variant="outline" className="text-xs">
@@ -130,7 +156,7 @@ export const columns: ColumnDef<SerializedDocument>[] = [
   },
   {
     accessorKey: 'fileSize',
-    header: 'Size',
+    header: ({ column }) => <SortableHeader column={column}>Size</SortableHeader>,
     size: 80,
     cell: ({ row }) => (
       <div className="text-sm text-muted-foreground">
@@ -140,13 +166,13 @@ export const columns: ColumnDef<SerializedDocument>[] = [
   },
   {
     accessorKey: 'status',
-    header: 'Status',
+    header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
     size: 120,
     cell: ({ row }) => getStatusBadge(row.original.status),
   },
   {
     accessorKey: 'uploadedByName',
-    header: 'Uploaded By',
+    header: ({ column }) => <SortableHeader column={column}>Uploaded By</SortableHeader>,
     size: 120,
     cell: ({ row }) => (
       <div className="text-sm text-muted-foreground">
@@ -156,8 +182,11 @@ export const columns: ColumnDef<SerializedDocument>[] = [
   },
   {
     accessorKey: 'createdAt',
-    header: 'Date',
+    header: ({ column }) => <SortableHeader column={column}>Date</SortableHeader>,
     size: 120,
+    sortingFn: (rowA, rowB) => {
+      return new Date(rowA.original.createdAt).getTime() - new Date(rowB.original.createdAt).getTime()
+    },
     cell: ({ row }) => (
       <div className="text-sm text-muted-foreground">
         {formatDate(row.original.createdAt)}

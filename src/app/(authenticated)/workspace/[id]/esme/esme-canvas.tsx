@@ -127,8 +127,8 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Main canvas area — drop target */}
+      <div className="flex-1 min-h-0 flex relative">
+        {/* Left column — canvas + input */}
         <CanvasDropZone
           workspaceId={workspaceId}
           workspaceName={workspaceName}
@@ -143,9 +143,9 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }
           isDragging={activeAlert !== null}
         />
 
-        {/* Right panel — alert tray */}
+        {/* Right column — alert tray (fixed height, contents scroll) */}
         <div
-          className="border-l border-border flex flex-col overflow-hidden transition-all duration-200"
+          className="border-l border-border flex flex-col transition-all duration-200"
           style={{ width: hydrated && trayCollapsed ? 0 : 320, borderLeftWidth: hydrated && trayCollapsed ? 0 : undefined }}
         >
           <div className="px-4 py-3 border-b border-border flex items-center justify-between min-w-[320px]">
@@ -231,10 +231,10 @@ function CanvasDropZone({
   })
 
   return (
-    <div ref={setNodeRef} className="flex-1 flex flex-col overflow-hidden">
-      {/* Scrollable block list */}
+    <div ref={setNodeRef} className="flex-1 min-w-0 flex flex-col">
+      {/* Scrollable canvas */}
       <div
-        className={`flex-1 overflow-y-auto transition-colors duration-150 ${
+        className={`flex-1 min-h-0 overflow-y-auto relative transition-colors duration-150 ${
           isDragging
             ? isOver
               ? 'border-2 border-dashed border-primary/60 bg-primary/5'
@@ -267,9 +267,12 @@ function CanvasDropZone({
         </div>
       </div>
 
-      {/* Input bar */}
-      <div className="border-t border-border bg-background px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-end gap-2">
+      {/* Fade gradient above input */}
+      <div className="pointer-events-none h-8 -mt-8 relative z-10 bg-gradient-to-t from-background to-transparent" />
+
+      {/* Input bar — pinned to bottom */}
+      <div className="shrink-0 bg-background px-4 py-4">
+        <div className="max-w-2xl mx-auto relative">
           <textarea
             ref={textareaRef}
             value={input}
@@ -277,16 +280,16 @@ function CanvasDropZone({
             onKeyDown={handleKeyDown}
             placeholder="Ask Esme anything..."
             disabled={isPending}
-            rows={1}
-            className="flex-1 resize-none rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            rows={2}
+            className="w-full resize-none rounded-2xl border border-border bg-muted/50 px-5 py-4 pr-16 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           />
           <Button
             size="icon"
             onClick={handleSubmit}
             disabled={!input.trim() || isPending}
-            className="h-10 w-10 shrink-0 rounded-xl"
+            className="absolute right-3 bottom-3 h-10 w-10 shrink-0 rounded-full"
           >
-            <ArrowUp className="h-4 w-4" />
+            <ArrowUp className="h-5 w-5" />
           </Button>
         </div>
       </div>

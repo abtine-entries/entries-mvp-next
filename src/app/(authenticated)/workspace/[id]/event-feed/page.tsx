@@ -100,11 +100,11 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
       <PageHeader
         breadcrumbs={[
           { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
-          { label: workspace.name, href: `/workspace/${workspace.id}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
+          { label: workspace.name, href: `/workspace/${workspace.id}/esme`, icon: <Building2 className="h-4 w-4" /> },
           { label: 'Event Feed', icon: <Activity className="h-4 w-4" /> },
         ]}
       />
-      <div className="flex-1 p-6 overflow-auto">
+      <div className="flex-1 px-10 py-6 overflow-auto">
         <EventFeedDataTable data={feedItems} workspaceId={workspace.id} />
       </div>
     </div>

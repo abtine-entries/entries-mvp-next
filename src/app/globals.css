@@ -175,7 +175,7 @@ h4 {
 
 /* Entries dark palette — the app runs in dark mode only */
 .dark {
-  --background: hsl(220 7% 15%);
+  --background: hsl(0 0% 0%);
   --foreground: hsl(0 0% 100% / 0.9);
   --card: hsl(220 7% 15%);
   --card-foreground: hsl(0 0% 100% / 0.9);

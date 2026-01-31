@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Table2 } from 'lucide-react'
 import { org } from '@/lib/config'
-import { getExplorerData } from './actions'
+import { getExplorerData, getWorkspaceDocuments } from './actions'
+import { getBills, getBatchPayments } from '../bills/actions'
 import { ExplorerTabs } from './explorer-tabs'
 
 interface ExplorerPageProps {
@@ -22,7 +23,12 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
     notFound()
   }
 
-  const data = await getExplorerData(workspace.id)
+  const [data, documents, bills, batchPayments] = await Promise.all([
+    getExplorerData(workspace.id),
+    getWorkspaceDocuments(workspace.id),
+    getBills(workspace.id),
+    getBatchPayments(workspace.id),
+  ])
 
   return (
     <div className="flex flex-col h-full">
@@ -48,8 +54,8 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
           },
         ]}
       />
-      <div className="flex-1 px-10 py-6 overflow-auto">
-        <ExplorerTabs data={data} />
+      <div className="flex-1 px-10 py-6 overflow-auto space-y-8">
+        <ExplorerTabs data={data} documents={documents} bills={bills} batchPayments={batchPayments} workspaceId={workspace.id} />
       </div>
     </div>
   )

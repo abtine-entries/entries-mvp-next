@@ -47,6 +47,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowUp, ArrowDown, X } from 'lucide-react'
+import { SiWise } from '@icons-pack/react-simple-icons'
 import type { SerializedBill } from './actions'
 import { createBatchPayment, createBatchPaymentDraft } from './actions'
 
@@ -134,9 +135,10 @@ const STATUS_OPTIONS = ['all', 'authorized', 'pending', 'paid', 'overdue'] as co
 interface BillsTableProps {
   bills: SerializedBill[]
   workspaceId: string
+  onRowClick?: (bill: SerializedBill) => void
 }
 
-function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
+function BillsTableInner({ bills, workspaceId, onRowClick }: BillsTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -352,6 +354,7 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
 
         {selectedAuthorizedCount > 0 && (
           <Button className="ml-auto" onClick={() => setSheetOpen(true)}>
+            <SiWise className="h-4 w-4" />
             Create Batch ({selectedAuthorizedCount})
           </Button>
         )}
@@ -390,11 +393,14 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() ? 'selected' : undefined}
+                className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : undefined}
+                onClick={() => onRowClick?.(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
                     style={{ width: cell.column.getSize() !== 150 ? cell.column.getSize() : undefined }}
+                    onClick={cell.column.id === 'select' ? (e) => e.stopPropagation() : undefined}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
@@ -414,7 +420,12 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
       <Sheet open={sheetOpen} onOpenChange={handleSheetOpenChange}>
         <SheetContent side="right" className="flex flex-col">
           <SheetHeader>
-            <SheetTitle>Batch Payment Review</SheetTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#9FE870]">
+                <SiWise className="h-4 w-4 text-[#163300]" />
+              </div>
+              <SheetTitle>Batch Payment Review</SheetTitle>
+            </div>
             <SheetDescription>
               Review selected bills before creating a batch payment.
             </SheetDescription>
@@ -477,6 +488,7 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
 
           <SheetFooter className="flex-col gap-2 sm:flex-col">
             <Button className="w-full" onClick={() => setConfirmDialogOpen(true)}>
+              <SiWise className="h-4 w-4" />
               Send via Wise
             </Button>
             <Button variant="outline" className="w-full" onClick={handleCsvExport} disabled={isPending}>
@@ -489,9 +501,14 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Batch Payment</DialogTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#9FE870]">
+                <SiWise className="h-4 w-4 text-[#163300]" />
+              </div>
+              <DialogTitle>Confirm Batch Payment</DialogTitle>
+            </div>
             <DialogDescription>
-              This will initiate transfers to {selectedAuthorizedCount} recipients.
+              This will initiate transfers to {selectedAuthorizedCount} recipients via Wise.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
@@ -518,6 +535,7 @@ function BillsTableInner({ bills, workspaceId }: BillsTableProps) {
               Cancel
             </Button>
             <Button onClick={handleWiseSend} disabled={isSending || isPending}>
+              <SiWise className="h-4 w-4" />
               {isSending ? 'Processing…' : 'Confirm & Send'}
             </Button>
           </DialogFooter>

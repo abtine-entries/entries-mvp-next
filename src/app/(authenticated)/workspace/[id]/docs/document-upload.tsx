@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState, useTransition, useCallback } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -89,8 +88,8 @@ export function DocumentUpload({ workspaceId }: DocumentUploadProps) {
   )
 
   return (
-    <Card
-      className={`bg-card border-dashed transition-colors ${
+    <div
+      className={`rounded-lg border border-dashed transition-colors ${
         isDragging
           ? 'border-primary bg-primary/5'
           : 'border-border'
@@ -99,7 +98,7 @@ export function DocumentUpload({ workspaceId }: DocumentUploadProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <CardContent className="p-8 text-center">
+      <div className="p-8 text-center">
         <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
           <Upload className={`h-6 w-6 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
         </div>
@@ -120,7 +119,7 @@ export function DocumentUpload({ workspaceId }: DocumentUploadProps) {
           className="hidden"
           onChange={handleFileChange}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

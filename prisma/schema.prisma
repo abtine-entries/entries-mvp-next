@@ -79,6 +79,7 @@ model Transaction {
   amount      Decimal
   categoryId  String?
   vendorId    String?
+  documentId  String?
   status      String    @default("unmatched") // unmatched, matched, pending
   confidence  Float?
   aiReasoning String?
@@ -88,6 +89,7 @@ model Transaction {
   workspace        Workspace @relation(fields: [workspaceId], references: [id])
   category         Category? @relation(fields: [categoryId], references: [id])
   vendor           Vendor?   @relation(fields: [vendorId], references: [id])
+  document         Document? @relation(fields: [documentId], references: [id])
   bankMatches      Match[]   @relation("BankTransaction")
   qboMatches       Match[]   @relation("QboTransaction")
   anomalies        Anomaly[]
@@ -265,8 +267,9 @@ model Document {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  workspace  Workspace @relation(fields: [workspaceId], references: [id])
-  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id])
+  transactions Transaction[]
 }
 
 model EsmeMessage {

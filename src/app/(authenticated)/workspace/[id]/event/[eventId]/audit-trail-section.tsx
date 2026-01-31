@@ -25,8 +25,9 @@ interface AuditTrailSectionProps {
   originTimestamp?: string
   /** Raw source key for logo rendering, e.g. "chase", "quickbooks", "entries" */
   originSourceKey?: string
-  /** Human-readable source label, e.g. "Chase", "QuickBooks", "Entries AI" */
+  /** Human-readable source label, e.g. "Chase", "QuickBooks", "Esme" */
   originSourceLabel?: string
+  flat?: boolean
 }
 
 function formatAction(action: string): string {
@@ -181,7 +182,75 @@ function OriginPayloadDetail({ payload }: { payload: Record<string, unknown> }) 
   )
 }
 
-export function AuditTrailSection({ entries, originPayload, originTimestamp, originSourceKey, originSourceLabel }: AuditTrailSectionProps) {
+export function AuditTrailSection({ entries, originPayload, originTimestamp, originSourceKey, originSourceLabel, flat }: AuditTrailSectionProps) {
+  const content = (
+    <>
+      {entries.length === 0 && !originPayload && (
+        <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+      )}
+
+      {(entries.length > 0 || originPayload) && (
+        <div className="relative ml-3">
+          <div className="absolute left-0 top-1 bottom-1 w-px bg-border" />
+          <div className="space-y-4">
+            {entries.map((entry) => (
+              <div key={entry.id} className="relative pl-5">
+                <div className="absolute left-[-3px] top-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {formatAction(entry.action)}
+                  </span>
+                  <span>&middot;</span>
+                  <span>{entry.userName ?? 'System'}</span>
+                  <span>&middot;</span>
+                  <span>{formatTimestamp(entry.createdAt)}</span>
+                </div>
+                {renderEntryDetail(entry)}
+              </div>
+            ))}
+
+            {originPayload && originTimestamp && (
+              <div className="relative pl-5">
+                <div className="absolute left-[-3px] top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    Event created
+                  </span>
+                  {originSourceKey && originSourceLabel && (
+                    <>
+                      <span>&middot;</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center justify-center h-3.5 w-3.5 shrink-0 [&>*]:!h-3.5 [&>*]:!w-3.5 [&_img]:!h-3.5 [&_img]:!w-3.5">
+                          <SourceIcon sourceKey={originSourceKey} size="sm" />
+                        </span>
+                        {originSourceLabel}
+                      </span>
+                    </>
+                  )}
+                  <span>&middot;</span>
+                  <span>{formatTimestamp(originTimestamp)}</span>
+                </div>
+                <OriginPayloadDetail payload={originPayload} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  if (flat) {
+    return (
+      <div className="pt-4 mt-4 border-t border-border">
+        <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+          <History className="h-4 w-4" />
+          Audit Trail
+        </h4>
+        {content}
+      </div>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -191,59 +260,7 @@ export function AuditTrailSection({ entries, originPayload, originTimestamp, ori
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {entries.length === 0 && !originPayload && (
-          <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
-        )}
-
-        {(entries.length > 0 || originPayload) && (
-          <div className="relative ml-3">
-            <div className="absolute left-0 top-1 bottom-1 w-px bg-border" />
-            <div className="space-y-4">
-              {/* Audit log entries (newest first) */}
-              {entries.map((entry) => (
-                <div key={entry.id} className="relative pl-5">
-                  <div className="absolute left-[-3px] top-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      {formatAction(entry.action)}
-                    </span>
-                    <span>&middot;</span>
-                    <span>{entry.userName ?? 'System'}</span>
-                    <span>&middot;</span>
-                    <span>{formatTimestamp(entry.createdAt)}</span>
-                  </div>
-                  {renderEntryDetail(entry)}
-                </div>
-              ))}
-
-              {/* Origin entry — always last (oldest) */}
-              {originPayload && originTimestamp && (
-                <div className="relative pl-5">
-                  <div className="absolute left-[-3px] top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      Event created
-                    </span>
-                    {originSourceKey && originSourceLabel && (
-                      <>
-                        <span>&middot;</span>
-                        <span className="inline-flex items-center gap-1">
-                          <span className="inline-flex items-center justify-center h-3.5 w-3.5 shrink-0 [&>*]:!h-3.5 [&>*]:!w-3.5 [&_img]:!h-3.5 [&_img]:!w-3.5">
-                            <SourceIcon sourceKey={originSourceKey} size="sm" />
-                          </span>
-                          {originSourceLabel}
-                        </span>
-                      </>
-                    )}
-                    <span>&middot;</span>
-                    <span>{formatTimestamp(originTimestamp)}</span>
-                  </div>
-                  <OriginPayloadDetail payload={originPayload} />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {content}
       </CardContent>
     </Card>
   )

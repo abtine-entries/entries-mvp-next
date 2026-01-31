@@ -19,12 +19,14 @@ interface NotesSectionProps {
   workspaceId: string
   eventId: string
   initialNotes: NoteData[]
+  flat?: boolean
 }
 
 export function NotesSection({
   workspaceId,
   eventId,
   initialNotes,
+  flat,
 }: NotesSectionProps) {
   const [notes, setNotes] = useState<NoteData[]>(initialNotes)
   const [inputValue, setInputValue] = useState('')
@@ -54,6 +56,61 @@ export function NotesSection({
     })
   }
 
+  const content = (
+    <div className="space-y-4">
+      {notes.length === 0 && (
+        <p className="text-sm text-muted-foreground">No notes yet.</p>
+      )}
+
+      {notes.map((note) => (
+        <div key={note.id} className="space-y-1">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {note.authorType === 'ai' ? 'Esme' : note.authorName}
+            </span>
+            <span>&middot;</span>
+            <span>{formatTimestamp(note.createdAt)}</span>
+          </div>
+          <p className="text-sm">{note.content}</p>
+        </div>
+      ))}
+
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <Input
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder="Add a note..."
+          disabled={isPending}
+          className="h-8 text-sm"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isPending || !inputValue.trim()}
+        >
+          <Send className="h-3.5 w-3.5" />
+        </Button>
+      </form>
+    </div>
+  )
+
+  if (flat) {
+    return (
+      <div className="pt-4 mt-4 border-t border-border">
+        <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+          <MessageSquare className="h-4 w-4" />
+          Notes
+          {notes.length > 0 && (
+            <span className="text-muted-foreground font-normal">
+              ({notes.length})
+            </span>
+          )}
+        </h4>
+        {content}
+      </div>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -67,40 +124,8 @@ export function NotesSection({
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {notes.length === 0 && (
-          <p className="text-sm text-muted-foreground">No notes yet.</p>
-        )}
-
-        {notes.map((note) => (
-          <div key={note.id} className="space-y-1">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {note.authorType === 'ai' ? 'Entries AI' : note.authorName}
-              </span>
-              <span>&middot;</span>
-              <span>{formatTimestamp(note.createdAt)}</span>
-            </div>
-            <p className="text-sm">{note.content}</p>
-          </div>
-        ))}
-
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Add a note..."
-            disabled={isPending}
-            className="h-8 text-sm"
-          />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isPending || !inputValue.trim()}
-          >
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        </form>
+      <CardContent>
+        {content}
       </CardContent>
     </Card>
   )

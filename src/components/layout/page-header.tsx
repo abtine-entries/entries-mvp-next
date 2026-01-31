@@ -13,7 +13,7 @@ export function PageHeader({ breadcrumbs, actions, className }: PageHeaderProps)
   return (
     <header
       className={cn(
-        'flex h-12 items-center justify-between border-b border-border bg-background px-4',
+        'flex h-12 items-center justify-between border-b border-border bg-background px-8',
         className
       )}
     >

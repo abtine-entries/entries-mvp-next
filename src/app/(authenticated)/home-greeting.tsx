@@ -1,14 +1,13 @@
 const greetings = [
-  "Time to make the numbers sing.",
-  "Let's balance those books.",
-  "Ready to reconcile?",
-  "Numbers don't lie, but they do hide.",
-  "Every cent accounted for.",
-  "Making debits and credits best friends.",
-  "The ledger awaits.",
-  "Turning chaos into clarity.",
-  "Let's close this month out.",
-  "Where every transaction tells a story.",
+  "Let's close some books today.",
+  "Ready when you are.",
+  "I've been keeping an eye on things.",
+  "Numbers are looking good — let's dig in.",
+  "Another day, another ledger.",
+  "The books won't balance themselves.",
+  "Let's make today count.",
+  "Everything's in order — where should we start?",
+  "Your clients are waiting.",
 ]
 
 export function HomeGreeting() {

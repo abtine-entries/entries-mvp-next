@@ -2,7 +2,6 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
-import { Card, CardContent } from '@/components/ui/card'
 import { Building2, FileText } from 'lucide-react'
 import { getDocuments } from './actions'
 import { DocsDataTable } from './docs-data-table'
@@ -41,11 +40,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
           <DocumentUpload workspaceId={workspace.id} />
 
           {/* Documents table */}
-          <Card className="bg-card border-border">
-            <CardContent className="p-0">
-              <DocsDataTable data={documents} />
-            </CardContent>
-          </Card>
+          <DocsDataTable data={documents} />
         </div>
       </div>
     </div>

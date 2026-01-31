@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Bot } from 'lucide-react'
+import { Bot, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
   ExplorerTransaction,
@@ -27,6 +27,7 @@ import type {
   VendorRecentTransaction,
 } from './actions'
 import { getVendorRecentTransactions } from './actions'
+import type { SerializedBill } from '../bills/actions'
 
 // --- Shared formatting helpers ---
 
@@ -112,20 +113,16 @@ function TransactionDetail({ transaction }: { transaction: ExplorerTransaction }
         }
       />
       <DetailField
-        label="Status"
+        label="Statement"
         value={
-          <Badge
-            variant={
-              transaction.status === 'matched'
-                ? 'success'
-                : transaction.status === 'pending'
-                  ? 'warning'
-                  : 'outline'
-            }
-            className="text-xs capitalize"
-          >
-            {transaction.status}
-          </Badge>
+          transaction.documentFileName ? (
+            <span className="flex items-center gap-1.5 text-primary">
+              <FileText className="h-3.5 w-3.5" />
+              {transaction.documentFileName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )
         }
       />
       {transaction.externalId && (
@@ -260,6 +257,64 @@ function EventDetail({ event }: { event: ExplorerEvent }) {
   )
 }
 
+// --- Bill detail ---
+
+const billStatusVariant: Record<string, 'success' | 'warning' | 'error' | 'secondary'> = {
+  authorized: 'success',
+  pending: 'warning',
+  overdue: 'error',
+  paid: 'secondary',
+}
+
+function BillDetail({ bill }: { bill: SerializedBill }) {
+  return (
+    <div className="space-y-1">
+      <DetailField label="Vendor" value={<span className="font-medium">{bill.vendorName}</span>} />
+      <DetailField label="Invoice #" value={<span className="font-mono text-xs">{bill.invoiceNumber}</span>} />
+      <DetailField label="Due Date" value={formatDate(bill.dueDate)} />
+      <DetailField
+        label="Amount"
+        value={
+          <span className="font-mono font-medium">
+            {bill.amount.toLocaleString('en-US', {
+              style: 'currency',
+              currency: bill.currency,
+            })}
+          </span>
+        }
+      />
+      <DetailField label="Currency" value={bill.currency} />
+      <DetailField
+        label="Status"
+        value={
+          <Badge variant={billStatusVariant[bill.status] ?? 'secondary'} className="text-xs capitalize">
+            {bill.status}
+          </Badge>
+        }
+      />
+      <DetailField
+        label="Source"
+        value={
+          <Badge variant="outline" className="text-xs">
+            {bill.xeroId ? 'Xero' : 'Manual'}
+          </Badge>
+        }
+      />
+      {bill.xeroId && (
+        <DetailField
+          label="Xero ID"
+          value={<span className="font-mono text-xs">{bill.xeroId}</span>}
+        />
+      )}
+      {bill.description && (
+        <DetailField label="Description" value={bill.description} />
+      )}
+      <DetailField label="Created" value={formatDateTime(bill.createdAt)} />
+      <DetailField label="Updated" value={formatDateTime(bill.updatedAt)} />
+    </div>
+  )
+}
+
 // --- Main sidebar component ---
 
 export type DetailItem =
@@ -267,6 +322,7 @@ export type DetailItem =
   | { tab: 'vendors'; data: ExplorerVendor }
   | { tab: 'categories'; data: ExplorerCategory }
   | { tab: 'events'; data: ExplorerEvent }
+  | { tab: 'bills'; data: SerializedBill }
 
 interface RowDetailSidebarProps {
   item: DetailItem | null
@@ -284,6 +340,8 @@ function getTitle(item: DetailItem): string {
       return item.data.name
     case 'events':
       return item.data.title
+    case 'bills':
+      return `${item.data.vendorName} — ${item.data.invoiceNumber}`
   }
 }
 
@@ -297,6 +355,8 @@ function getDescription(item: DetailItem): string {
       return 'Category Details'
     case 'events':
       return 'Event Details'
+    case 'bills':
+      return 'Bill Details'
   }
 }
 
@@ -315,6 +375,7 @@ export function RowDetailSidebar({ item, open, onOpenChange }: RowDetailSidebarP
               {item.tab === 'vendors' && <VendorDetail vendor={item.data} />}
               {item.tab === 'categories' && <CategoryDetail category={item.data} />}
               {item.tab === 'events' && <EventDetail event={item.data} />}
+              {item.tab === 'bills' && <BillDetail bill={item.data} />}
             </div>
           </>
         )}

@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { revalidatePath } from 'next/cache'
 
 export async function getExplorerData(workspaceId: string) {
   const [transactions, vendors, categories, events] = await Promise.all([
@@ -9,6 +10,7 @@ export async function getExplorerData(workspaceId: string) {
       include: {
         category: { select: { id: true, name: true } },
         vendor: { select: { id: true, name: true } },
+        document: { select: { id: true, fileName: true } },
       },
       orderBy: { date: 'desc' },
     }),
@@ -39,6 +41,8 @@ export async function getExplorerData(workspaceId: string) {
       categoryId: t.categoryId,
       vendorName: t.vendor?.name ?? null,
       vendorId: t.vendorId,
+      documentId: t.documentId,
+      documentFileName: t.document?.fileName ?? null,
       source: t.source,
       status: t.status,
       externalId: t.externalId,
@@ -74,6 +78,44 @@ export type ExplorerTransaction = ExplorerData['transactions'][number]
 export type ExplorerVendor = ExplorerData['vendors'][number]
 export type ExplorerCategory = ExplorerData['categories'][number]
 export type ExplorerEvent = ExplorerData['events'][number]
+
+export interface WorkspaceDocument {
+  id: string
+  fileName: string
+  fileType: string
+}
+
+export async function getWorkspaceDocuments(workspaceId: string): Promise<WorkspaceDocument[]> {
+  const documents = await prisma.document.findMany({
+    where: { workspaceId },
+    select: { id: true, fileName: true, fileType: true },
+    orderBy: { fileName: 'asc' },
+  })
+  return documents
+}
+
+export async function linkTransactionDocument(
+  transactionId: string,
+  documentId: string,
+  workspaceId: string
+) {
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { documentId },
+  })
+  revalidatePath(`/workspace/${workspaceId}/explorer`)
+}
+
+export async function unlinkTransactionDocument(
+  transactionId: string,
+  workspaceId: string
+) {
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { documentId: null },
+  })
+  revalidatePath(`/workspace/${workspaceId}/explorer`)
+}
 
 export async function getVendorRecentTransactions(vendorId: string) {
   const transactions = await prisma.transaction.findMany({

@@ -35,13 +35,16 @@ import {
 } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react'
 import {
-  transactionColumns,
+  getTransactionColumns,
   vendorColumns,
   categoryColumns,
   eventColumns,
 } from './columns'
 import { RowDetailSidebar, type DetailItem } from './row-detail-sidebar'
-import type { ExplorerData } from './actions'
+import type { ExplorerData, WorkspaceDocument } from './actions'
+import { BillsTable } from '../bills/bills-table'
+import { PaymentHistory } from '../bills/payment-history'
+import type { SerializedBill, SerializedBatchPayment } from '../bills/actions'
 
 const PAGE_SIZE = 25
 
@@ -121,72 +124,70 @@ function PaginatedTable<TData extends RowData>({
   const filteredCount = table.getFilteredRowModel().rows.length
 
   return (
-    <div className="space-y-3">
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
+    <div className="space-y-4">
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  style={{
+                    width:
+                      header.getSize() !== 150
+                        ? header.getSize()
+                        : undefined,
+                  }}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.length > 0 ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : undefined}
+                onClick={() => onRowClick?.(row.original)}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
                     style={{
                       width:
-                        header.getSize() !== 150
-                          ? header.getSize()
+                        cell.column.getSize() !== 150
+                          ? cell.column.getSize()
                           : undefined,
                     }}
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    )}
+                  </TableCell>
                 ))}
               </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length > 0 ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : undefined}
-                  onClick={() => onRowClick?.(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      style={{
-                        width:
-                          cell.column.getSize() !== 150
-                            ? cell.column.getSize()
-                            : undefined,
-                      }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={columns.length}
+                className="h-24 text-center text-muted-foreground"
+              >
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
 
       {/* Pagination controls */}
       {pageCount > 1 && (
@@ -231,8 +232,6 @@ interface FilterBarProps {
   onDateRangeChange: (value: string) => void
   source: string
   onSourceChange: (value: string) => void
-  status: string
-  onStatusChange: (value: string) => void
   activeFilterCount: number
 }
 
@@ -244,13 +243,10 @@ function FilterBar({
   onDateRangeChange,
   source,
   onSourceChange,
-  status,
-  onStatusChange,
   activeFilterCount,
 }: FilterBarProps) {
   const hasDateColumn = tab === 'transactions' || tab === 'vendors' || tab === 'events'
   const hasSourceFilter = tab === 'transactions'
-  const hasStatusFilter = tab === 'transactions'
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
@@ -291,20 +287,6 @@ function FilterBar({
         </Select>
       )}
 
-      {hasStatusFilter && (
-        <Select value={status} onValueChange={onStatusChange}>
-          <SelectTrigger size="sm" className="w-[120px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="unmatched">Unmatched</SelectItem>
-            <SelectItem value="matched">Matched</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-          </SelectContent>
-        </Select>
-      )}
-
       {activeFilterCount > 0 && (
         <div className="flex items-center gap-1.5">
           <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
@@ -320,6 +302,10 @@ function FilterBar({
 // --- Main ExplorerTabs wrapper ---
 interface ExplorerTabsProps {
   data: ExplorerData
+  documents: WorkspaceDocument[]
+  bills: SerializedBill[]
+  batchPayments: SerializedBatchPayment[]
+  workspaceId: string
 }
 
 export function ExplorerTabs(props: ExplorerTabsProps) {
@@ -330,7 +316,7 @@ export function ExplorerTabs(props: ExplorerTabsProps) {
   )
 }
 
-function ExplorerTabsInner({ data }: ExplorerTabsProps) {
+function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId }: ExplorerTabsProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -340,7 +326,6 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
   const initialSearch = searchParams.get('q') ?? ''
   const initialDateRange = searchParams.get('dateRange') ?? 'all'
   const initialSource = searchParams.get('source') ?? 'all'
-  const initialStatus = searchParams.get('status') ?? 'all'
   const initialSortId = searchParams.get('sortBy') ?? ''
   const initialSortDesc = searchParams.get('sortDesc') === 'true'
 
@@ -348,7 +333,6 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [dateRange, setDateRange] = useState(initialDateRange)
   const [source, setSource] = useState(initialSource)
-  const [status, setStatus] = useState(initialStatus)
   const [sorting, setSorting] = useState<SortingState>(
     initialSortId ? [{ id: initialSortId, desc: initialSortDesc }] : []
   )
@@ -384,7 +368,6 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
       setActiveTab(tab)
       // Reset tab-specific filters
       setSource('all')
-      setStatus('all')
       setDateRange('all')
       setSearchQuery('')
       setSorting([])
@@ -425,14 +408,6 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
     [updateParams]
   )
 
-  const handleStatusChange = useCallback(
-    (value: string) => {
-      setStatus(value)
-      updateParams({ status: value })
-    },
-    [updateParams]
-  )
-
   const handleSortingChange = useCallback(
     (next: SortingState) => {
       setSorting(next)
@@ -451,9 +426,8 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
     if (searchQuery) count++
     if (dateRange !== 'all') count++
     if (source !== 'all') count++
-    if (status !== 'all') count++
     return count
-  }, [searchQuery, dateRange, source, status])
+  }, [searchQuery, dateRange, source])
 
   // Apply client-side date range filtering
   const filteredTransactions = useMemo(() => {
@@ -467,11 +441,8 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
     if (source !== 'all') {
       filtered = filtered.filter((t) => t.source === source)
     }
-    if (status !== 'all') {
-      filtered = filtered.filter((t) => t.status === status)
-    }
     return filtered
-  }, [data.transactions, dateRange, source, status])
+  }, [data.transactions, dateRange, source])
 
   const filteredVendors = useMemo(() => {
     if (dateRange === 'all') return data.vendors
@@ -503,8 +474,14 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
         label: `Categories (${data.categories.length})`,
       },
       { value: 'events', label: `Events (${filteredEvents.length})` },
+      { value: 'bills', label: `Bills (${bills.length})` },
     ],
-    [filteredTransactions.length, filteredVendors.length, data.categories.length, filteredEvents.length]
+    [filteredTransactions.length, filteredVendors.length, data.categories.length, filteredEvents.length, bills.length]
+  )
+
+  const txColumns = useMemo(
+    () => getTransactionColumns(documents, workspaceId),
+    [documents, workspaceId]
   )
 
   return (
@@ -517,22 +494,22 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
         ))}
       </TabsList>
 
-      <FilterBar
-        tab={activeTab}
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        dateRange={dateRange}
-        onDateRangeChange={handleDateRangeChange}
-        source={source}
-        onSourceChange={handleSourceChange}
-        status={status}
-        onStatusChange={handleStatusChange}
-        activeFilterCount={activeFilterCount}
-      />
+      {activeTab !== 'bills' && (
+        <FilterBar
+          tab={activeTab}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          dateRange={dateRange}
+          onDateRangeChange={handleDateRangeChange}
+          source={source}
+          onSourceChange={handleSourceChange}
+          activeFilterCount={activeFilterCount}
+        />
+      )}
 
       <TabsContent value="transactions">
         <PaginatedTable
-          columns={transactionColumns}
+          columns={txColumns}
           data={filteredTransactions}
           emptyMessage="No transactions found."
           globalFilter={searchQuery}
@@ -600,6 +577,20 @@ function ExplorerTabsInner({ data }: ExplorerTabsProps) {
             setSidebarOpen(true)
           }}
         />
+      </TabsContent>
+
+      <TabsContent value="bills">
+        <div className="space-y-8">
+          <BillsTable
+            bills={bills}
+            workspaceId={workspaceId}
+            onRowClick={(bill) => {
+              setSidebarItem({ tab: 'bills', data: bill })
+              setSidebarOpen(true)
+            }}
+          />
+          <PaymentHistory batchPayments={batchPayments} />
+        </div>
       </TabsContent>
 
       <RowDetailSidebar

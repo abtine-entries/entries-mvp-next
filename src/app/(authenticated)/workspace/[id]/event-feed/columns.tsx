@@ -1,19 +1,16 @@
 'use client'
 
 import { ColumnDef } from '@tanstack/react-table'
+import { Button } from '@/components/ui/button'
 import {
-  Sparkles,
   ArrowLeftRight,
   Tags,
   Plug,
-  Layers,
-  FileText,
-  Clock,
-  Code2,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react'
-import { ConnectorLogo } from '@/components/ui/connector-logo'
-import type { ConnectorType } from '@/components/ui/connector-logo-config'
-import { SyntaxJson } from '@/components/ui/syntax-json'
+import { SourceIcon } from '@/components/ui/source-icon'
 
 export type EventFeedItem = {
   id: string
@@ -27,7 +24,29 @@ export type EventFeedItem = {
   eventId: string | null
 }
 
-const sourceConnectorMap: Record<string, ConnectorType> = {
+// --- Sortable header (matches explorer pattern) ---
+function SortableHeader({ column, children }: { column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: () => void }; children: React.ReactNode }) {
+  const sorted = column.getIsSorted()
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-ml-3 h-8 data-[state=open]:bg-accent"
+      onClick={() => column.toggleSorting()}
+    >
+      {children}
+      {sorted === 'asc' ? (
+        <ArrowUp className="ml-1 h-3.5 w-3.5" />
+      ) : sorted === 'desc' ? (
+        <ArrowDown className="ml-1 h-3.5 w-3.5" />
+      ) : (
+        <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50" />
+      )}
+    </Button>
+  )
+}
+
+const sourceConnectorMap: Record<string, string> = {
   qbo: 'quickbooks',
   chase: 'chase',
 }
@@ -48,17 +67,9 @@ function formatEventTime(date: Date): string {
   return `${base} ${tzAbbr}`
 }
 
-function SourceIcon({ source }: { source: string }) {
-  if (source === 'entries') {
-    return <Sparkles className="h-4 w-4 text-primary" />
-  }
-
-  const connectorType = sourceConnectorMap[source]
-  if (connectorType) {
-    return <ConnectorLogo connector={connectorType} size="sm" />
-  }
-
-  return <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs">?</div>
+function FeedSourceIcon({ source }: { source: string }) {
+  const sourceKey = sourceConnectorMap[source] ?? source
+  return <SourceIcon sourceKey={sourceKey} size="sm" />
 }
 
 function TypeIcon({ type }: { type: string }) {
@@ -72,63 +83,23 @@ function TypeIcon({ type }: { type: string }) {
   }
 }
 
-function eventToPayload(event: EventFeedItem) {
-  return {
-    id: event.id,
-    event_id: event.eventId,
-    entity_type: event.entityType,
-    entity_id: event.entityId,
-    type: event.type,
-    source: event.source,
-    source_label: event.sourceLabel,
-    description: event.description,
-    occurred_at: event.occurredAt instanceof Date
-      ? event.occurredAt.toISOString()
-      : event.occurredAt,
-    timezone: tzAbbr,
-  }
-}
-
-function JsonPayloadHover({ event }: { event: EventFeedItem }) {
-  const payload = eventToPayload(event)
-
-  return (
-    <div className="relative flex items-center justify-end">
-      <Code2 className="h-3.5 w-3.5 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />
-      <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover:block">
-        <div className="bg-zinc-950 text-zinc-100 rounded-lg border border-zinc-800 shadow-2xl p-3 w-[360px] max-h-[280px] overflow-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Event Payload</span>
-            <span className="text-[10px] font-mono text-zinc-600">JSON</span>
-          </div>
-          <SyntaxJson data={payload} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export const columns: ColumnDef<EventFeedItem>[] = [
   {
     id: 'source',
     size: 40,
+    enableSorting: false,
     header: () => (
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Plug className="h-3.5 w-3.5" />
         <span>Source</span>
       </div>
     ),
-    cell: ({ row }) => <SourceIcon source={row.original.source} />,
+    cell: ({ row }) => <FeedSourceIcon source={row.original.source} />,
   },
   {
     accessorKey: 'type',
     size: 100,
-    header: () => (
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Layers className="h-3.5 w-3.5" />
-        <span>Type</span>
-      </div>
-    ),
+    header: ({ column }) => <SortableHeader column={column}>Type</SortableHeader>,
     cell: ({ row }) => (
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <TypeIcon type={row.getValue('type')} />
@@ -138,12 +109,7 @@ export const columns: ColumnDef<EventFeedItem>[] = [
   },
   {
     accessorKey: 'description',
-    header: () => (
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <FileText className="h-3.5 w-3.5" />
-        <span>Description</span>
-      </div>
-    ),
+    header: ({ column }) => <SortableHeader column={column}>Description</SortableHeader>,
     cell: ({ row }) => (
       <span className="truncate">{row.getValue('description')}</span>
     ),
@@ -151,22 +117,16 @@ export const columns: ColumnDef<EventFeedItem>[] = [
   {
     accessorKey: 'occurredAt',
     size: 140,
-    header: () => (
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Clock className="h-3.5 w-3.5" />
-        <span>Date</span>
-      </div>
-    ),
+    header: ({ column }) => <SortableHeader column={column}>Date</SortableHeader>,
+    sortingFn: (rowA, rowB) => {
+      const a = new Date(rowA.original.occurredAt).getTime()
+      const b = new Date(rowB.original.occurredAt).getTime()
+      return a - b
+    },
     cell: ({ row }) => (
       <span className="text-muted-foreground text-sm whitespace-nowrap">
         {formatEventTime(row.getValue('occurredAt'))}
       </span>
     ),
-  },
-  {
-    id: 'payload',
-    size: 32,
-    header: () => null,
-    cell: ({ row }) => <JsonPayloadHover event={row.original} />,
   },
 ]

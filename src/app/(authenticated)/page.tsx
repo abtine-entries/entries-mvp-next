@@ -47,7 +47,7 @@ export default function HomePage() {
               <Sparkles className="h-4 w-4" />
               Esme
             </p>
-            <Suspense fallback={<div className="bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm">Loading...</div>}>
+            <Suspense fallback={<div className="text-muted-foreground text-sm">Loading...</div>}>
               <AlertsBriefing />
             </Suspense>
           </section>
@@ -68,11 +68,9 @@ export default function HomePage() {
                 }
               />
             </div>
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <Suspense fallback={<ClientTableSkeleton />}>
-                <ClientList />
-              </Suspense>
-            </div>
+            <Suspense fallback={<ClientTableSkeleton />}>
+              <ClientList />
+            </Suspense>
           </section>
 
           {/* Recent Activity Section */}
@@ -81,7 +79,7 @@ export default function HomePage() {
               <Activity className="h-4 w-4" />
               Recent activity
             </p>
-            <Suspense fallback={<div className="bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm">Loading activity...</div>}>
+            <Suspense fallback={<div className="text-muted-foreground text-sm">Loading activity...</div>}>
               <RecentActivity />
             </Suspense>
           </section>

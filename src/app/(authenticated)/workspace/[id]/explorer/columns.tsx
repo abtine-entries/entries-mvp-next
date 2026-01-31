@@ -9,7 +9,9 @@ import type {
   ExplorerVendor,
   ExplorerCategory,
   ExplorerEvent,
+  WorkspaceDocument,
 } from './actions'
+import { StatementCell } from './statement-cell'
 
 function formatAmount(amount: number): string {
   const formatted = Math.abs(amount).toLocaleString('en-US', {
@@ -52,97 +54,97 @@ function SortableHeader({ label, column }: { label: string; column: { toggleSort
 }
 
 // --- Transaction columns ---
-export const transactionColumns: ColumnDef<ExplorerTransaction>[] = [
-  {
-    accessorKey: 'date',
-    header: ({ column }) => <SortableHeader label="Date" column={column} />,
-    size: 120,
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground whitespace-nowrap">
-        {formatDate(row.getValue('date'))}
-      </span>
-    ),
-    sortingFn: (a, b) => {
-      return new Date(a.original.date).getTime() - new Date(b.original.date).getTime()
+export function getTransactionColumns(
+  documents: WorkspaceDocument[],
+  workspaceId: string
+): ColumnDef<ExplorerTransaction>[] {
+  return [
+    {
+      accessorKey: 'date',
+      header: ({ column }) => <SortableHeader label="Date" column={column} />,
+      size: 120,
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
+          {formatDate(row.getValue('date'))}
+        </span>
+      ),
+      sortingFn: (a, b) => {
+        return new Date(a.original.date).getTime() - new Date(b.original.date).getTime()
+      },
     },
-  },
-  {
-    accessorKey: 'description',
-    header: ({ column }) => <SortableHeader label="Description" column={column} />,
-    cell: ({ row }) => (
-      <span className="text-sm truncate max-w-[300px] block">
-        {row.getValue('description')}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'amount',
-    header: ({ column }) => (
-      <div className="text-right">
-        <SortableHeader label="Amount" column={column} />
-      </div>
-    ),
-    size: 120,
-    cell: ({ row }) => {
-      const amount = row.getValue<number>('amount')
-      return (
-        <div
-          className={cn(
-            'text-right text-sm font-mono',
-            amount < 0 ? 'text-red-400' : 'text-green-400'
-          )}
-        >
-          {formatAmount(amount)}
+    {
+      accessorKey: 'description',
+      header: ({ column }) => <SortableHeader label="Description" column={column} />,
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[300px] block">
+          {row.getValue('description')}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'amount',
+      header: ({ column }) => (
+        <div className="text-right">
+          <SortableHeader label="Amount" column={column} />
         </div>
-      )
+      ),
+      size: 120,
+      cell: ({ row }) => {
+        const amount = row.getValue<number>('amount')
+        return (
+          <div
+            className={cn(
+              'text-right text-sm font-mono',
+              amount < 0 ? 'text-red-400' : 'text-green-400'
+            )}
+          >
+            {formatAmount(amount)}
+          </div>
+        )
+      },
     },
-  },
-  {
-    accessorKey: 'categoryName',
-    header: ({ column }) => <SortableHeader label="Category" column={column} />,
-    size: 150,
-    cell: ({ row }) => {
-      const name = row.getValue<string | null>('categoryName')
-      return name ? (
-        <span className="text-sm">{name}</span>
-      ) : (
-        <span className="text-sm text-muted-foreground">—</span>
-      )
+    {
+      accessorKey: 'categoryName',
+      header: ({ column }) => <SortableHeader label="Category" column={column} />,
+      size: 150,
+      cell: ({ row }) => {
+        const name = row.getValue<string | null>('categoryName')
+        return name ? (
+          <span className="text-sm">{name}</span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )
+      },
     },
-  },
-  {
-    accessorKey: 'source',
-    header: ({ column }) => <SortableHeader label="Source" column={column} />,
-    size: 100,
-    cell: ({ row }) => {
-      const source = row.getValue<string>('source')
-      return (
-        <Badge variant="outline" className="text-xs capitalize">
-          {source === 'qbo' ? 'QBO' : source}
-        </Badge>
-      )
+    {
+      accessorKey: 'source',
+      header: ({ column }) => <SortableHeader label="Source" column={column} />,
+      size: 100,
+      cell: ({ row }) => {
+        const source = row.getValue<string>('source')
+        return (
+          <Badge variant="outline" className="text-xs capitalize">
+            {source === 'qbo' ? 'QBO' : source}
+          </Badge>
+        )
+      },
     },
-  },
-  {
-    accessorKey: 'status',
-    header: ({ column }) => <SortableHeader label="Status" column={column} />,
-    size: 110,
-    cell: ({ row }) => {
-      const status = row.getValue<string>('status')
-      const variant =
-        status === 'matched'
-          ? 'success'
-          : status === 'pending'
-          ? 'warning'
-          : 'outline'
-      return (
-        <Badge variant={variant as 'success' | 'warning' | 'outline'} className="text-xs capitalize">
-          {status}
-        </Badge>
-      )
+    {
+      id: 'statement',
+      header: () => <span className="text-sm">Statement</span>,
+      size: 180,
+      cell: ({ row }) => (
+        <StatementCell
+          transactionId={row.original.id}
+          documentId={row.original.documentId}
+          documentFileName={row.original.documentFileName}
+          documents={documents}
+          workspaceId={workspaceId}
+        />
+      ),
     },
-  },
-]
+  ]
+}
 
 // --- Vendor columns ---
 export const vendorColumns: ColumnDef<ExplorerVendor>[] = [

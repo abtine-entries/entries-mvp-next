@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
 import { hasConnectorLogo, type ConnectorType } from '@/components/ui/connector-logo-config'
 
@@ -13,7 +13,7 @@ const sizeClasses = {
   lg: 'size-14',
 } as const
 
-const iconSizeMap = { xs: 10, sm: 16, md: 26, lg: 36 } as const
+const sizeMap = { xs: 16, sm: 24, md: 40, lg: 56 } as const
 
 interface SourceIconProps {
   /** The raw source key, e.g. "chase", "quickbooks", "entries" */
@@ -28,12 +28,11 @@ interface SourceIconProps {
  */
 export function SourceIcon({ sourceKey, size = 'sm', className }: SourceIconProps) {
   if (sourceKey === 'entries') {
-    const iconPx = iconSizeMap[size]
+    const iconPx = Math.round(sizeMap[size] * 0.6)
     return (
       <Avatar className={cn(sizeClasses[size], className)}>
-        <AvatarImage src="/entries-icon.png" alt="Entries" className="rounded-md" />
-        <AvatarFallback className="bg-muted">
-          <Image src="/entries-icon.png" alt="Entries" width={iconPx} height={iconPx} className="rounded-md" />
+        <AvatarFallback className="bg-transparent">
+          <Image src="/entries-icon.png" alt="Entries" width={iconPx} height={iconPx} className="rounded-[3px]" />
         </AvatarFallback>
       </Avatar>
     )

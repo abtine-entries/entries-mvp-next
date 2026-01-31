@@ -239,7 +239,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
   })
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-dvh overflow-hidden">
       <PageHeader
         breadcrumbs={[
           { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
