@@ -57,7 +57,8 @@ function SortableHeader({ label, column }: { label: string; column: { toggleSort
 export function getTransactionColumns(
   documents: WorkspaceDocument[],
   workspaceId: string,
-  onSourceClick?: (sourceKey: string) => void
+  onSourceClick?: (sourceKey: string) => void,
+  onCategoryClick?: (categoryId: string) => void
 ): ColumnDef<ExplorerTransaction>[] {
   return [
     {
@@ -110,10 +111,22 @@ export function getTransactionColumns(
       size: 150,
       cell: ({ row }) => {
         const name = row.getValue<string | null>('categoryName')
-        return name ? (
-          <span className="text-sm">{name}</span>
+        const categoryId = row.original.categoryId
+        if (!name) {
+          return <span className="text-sm text-muted-foreground">—</span>
+        }
+        return onCategoryClick && categoryId ? (
+          <button
+            className="cursor-pointer hover:underline text-sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onCategoryClick(categoryId)
+            }}
+          >
+            {name}
+          </button>
         ) : (
-          <span className="text-sm text-muted-foreground">—</span>
+          <span className="text-sm">{name}</span>
         )
       },
     },
@@ -243,13 +256,30 @@ export function getVendorColumns(
 }
 
 // --- Category columns ---
-export const categoryColumns: ColumnDef<ExplorerCategory>[] = [
+export function getCategoryColumns(
+  onCategoryClick?: (categoryId: string) => void
+): ColumnDef<ExplorerCategory>[] {
+  return [
   {
     accessorKey: 'name',
     header: ({ column }) => <SortableHeader label="Name" column={column} />,
-    cell: ({ row }) => (
-      <span className="text-sm font-medium">{row.getValue('name')}</span>
-    ),
+    cell: ({ row }) => {
+      const name = row.getValue<string>('name')
+      const categoryId = row.original.id
+      return onCategoryClick ? (
+        <button
+          className="cursor-pointer hover:underline text-sm font-medium"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCategoryClick(categoryId)
+          }}
+        >
+          {name}
+        </button>
+      ) : (
+        <span className="text-sm font-medium">{name}</span>
+      )
+    },
   },
   {
     accessorKey: 'type',
@@ -275,7 +305,8 @@ export const categoryColumns: ColumnDef<ExplorerCategory>[] = [
       </div>
     ),
   },
-]
+  ]
+}
 
 // --- Event columns ---
 export const eventColumns: ColumnDef<ExplorerEvent>[] = [

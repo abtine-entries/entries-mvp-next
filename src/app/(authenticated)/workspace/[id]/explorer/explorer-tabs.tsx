@@ -37,13 +37,14 @@ import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-rea
 import {
   getTransactionColumns,
   getVendorColumns,
-  categoryColumns,
+  getCategoryColumns,
   eventColumns,
 } from './columns'
 import { RowDetailSidebar, type DetailItem } from './row-detail-sidebar'
 import { EntityDetailSidebar } from '@/components/ui/entity-detail-sidebar'
 import { SourceDetailView } from './source-detail-view'
 import { VendorDetailView } from './vendor-detail-view'
+import { CategoryDetailView } from './category-detail-view'
 import type { ExplorerData, WorkspaceDocument } from './actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -346,6 +347,8 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
   const [sourceSidebarOpen, setSourceSidebarOpen] = useState(false)
   const [vendorSidebarId, setVendorSidebarId] = useState<string | null>(null)
   const [vendorSidebarOpen, setVendorSidebarOpen] = useState(false)
+  const [categorySidebarId, setCategorySidebarId] = useState<string | null>(null)
+  const [categorySidebarOpen, setCategorySidebarOpen] = useState(false)
 
   // URL update helper
   const updateParams = useCallback(
@@ -496,14 +499,24 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
     setVendorSidebarOpen(true)
   }, [])
 
+  const handleCategoryClick = useCallback((categoryId: string) => {
+    setCategorySidebarId(categoryId)
+    setCategorySidebarOpen(true)
+  }, [])
+
   const txColumns = useMemo(
-    () => getTransactionColumns(documents, workspaceId, handleSourceClick),
-    [documents, workspaceId, handleSourceClick]
+    () => getTransactionColumns(documents, workspaceId, handleSourceClick, handleCategoryClick),
+    [documents, workspaceId, handleSourceClick, handleCategoryClick]
   )
 
   const vndrColumns = useMemo(
     () => getVendorColumns(handleVendorClick),
     [handleVendorClick]
+  )
+
+  const catColumns = useMemo(
+    () => getCategoryColumns(handleCategoryClick),
+    [handleCategoryClick]
   )
 
   return (
@@ -567,7 +580,7 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
 
       <TabsContent value="categories">
         <PaginatedTable
-          columns={categoryColumns}
+          columns={catColumns}
           data={data.categories}
           emptyMessage="No categories found."
           globalFilter={searchQuery}
@@ -642,6 +655,18 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
       >
         {vendorSidebarId && (
           <VendorDetailView vendorId={vendorSidebarId} workspaceId={workspaceId} />
+        )}
+      </EntityDetailSidebar>
+
+      <EntityDetailSidebar
+        open={categorySidebarOpen}
+        onOpenChange={setCategorySidebarOpen}
+        entityType="category"
+        entityId={categorySidebarId ?? ''}
+        workspaceId={workspaceId}
+      >
+        {categorySidebarId && (
+          <CategoryDetailView categoryId={categorySidebarId} workspaceId={workspaceId} />
         )}
       </EntityDetailSidebar>
     </Tabs>

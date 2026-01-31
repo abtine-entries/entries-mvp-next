@@ -246,3 +246,54 @@ export async function getVendorDetail(workspaceId: string, vendorId: string) {
 export type VendorDetail = NonNullable<Awaited<ReturnType<typeof getVendorDetail>>>
 export type VendorDetailTransaction = VendorDetail['recentTransactions'][number]
 export type VendorMonthlySpend = VendorDetail['monthlySpend'][number]
+
+export async function getCategoryDetail(workspaceId: string, categoryId: string) {
+  const category = await prisma.category.findFirst({
+    where: { id: categoryId, workspaceId },
+    include: {
+      parent: { select: { id: true, name: true } },
+    },
+  })
+
+  if (!category) return null
+
+  const transactionCount = await prisma.transaction.count({
+    where: { categoryId, workspaceId },
+  })
+
+  const transactions = await prisma.transaction.findMany({
+    where: { categoryId, workspaceId },
+    orderBy: { date: 'desc' },
+    take: 10,
+    include: {
+      vendor: { select: { name: true } },
+    },
+  })
+
+  const totalAmount = transactions.length > 0
+    ? (await prisma.transaction.findMany({
+        where: { categoryId, workspaceId },
+        select: { amount: true },
+      })).reduce((sum, t) => sum + Math.abs(t.amount.toNumber()), 0)
+    : 0
+
+  return {
+    id: category.id,
+    name: category.name,
+    type: category.type,
+    parentName: category.parent?.name ?? null,
+    parentId: category.parent?.id ?? null,
+    transactionCount,
+    totalAmount,
+    recentTransactions: transactions.map((t) => ({
+      id: t.id,
+      date: t.date.toISOString(),
+      description: t.description,
+      amount: t.amount.toNumber(),
+      vendorName: t.vendor?.name ?? null,
+    })),
+  }
+}
+
+export type CategoryDetail = NonNullable<Awaited<ReturnType<typeof getCategoryDetail>>>
+export type CategoryDetailTransaction = CategoryDetail['recentTransactions'][number]
