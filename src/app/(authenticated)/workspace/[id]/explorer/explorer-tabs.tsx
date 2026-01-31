@@ -45,6 +45,7 @@ import { EntityDetailSidebar } from '@/components/ui/entity-detail-sidebar'
 import { SourceDetailView } from './source-detail-view'
 import { VendorDetailView } from './vendor-detail-view'
 import { CategoryDetailView } from './category-detail-view'
+import { DocumentDetailView } from '../docs/document-detail-view'
 import type { ExplorerData, WorkspaceDocument } from './actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -349,6 +350,8 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
   const [vendorSidebarOpen, setVendorSidebarOpen] = useState(false)
   const [categorySidebarId, setCategorySidebarId] = useState<string | null>(null)
   const [categorySidebarOpen, setCategorySidebarOpen] = useState(false)
+  const [documentSidebarId, setDocumentSidebarId] = useState<string | null>(null)
+  const [documentSidebarOpen, setDocumentSidebarOpen] = useState(false)
 
   // URL update helper
   const updateParams = useCallback(
@@ -504,9 +507,14 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
     setCategorySidebarOpen(true)
   }, [])
 
+  const handleDocumentClick = useCallback((documentId: string) => {
+    setDocumentSidebarId(documentId)
+    setDocumentSidebarOpen(true)
+  }, [])
+
   const txColumns = useMemo(
-    () => getTransactionColumns(documents, workspaceId, handleSourceClick, handleCategoryClick),
-    [documents, workspaceId, handleSourceClick, handleCategoryClick]
+    () => getTransactionColumns(documents, workspaceId, handleSourceClick, handleCategoryClick, handleDocumentClick),
+    [documents, workspaceId, handleSourceClick, handleCategoryClick, handleDocumentClick]
   )
 
   const vndrColumns = useMemo(
@@ -667,6 +675,18 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
       >
         {categorySidebarId && (
           <CategoryDetailView categoryId={categorySidebarId} workspaceId={workspaceId} />
+        )}
+      </EntityDetailSidebar>
+
+      <EntityDetailSidebar
+        open={documentSidebarOpen}
+        onOpenChange={setDocumentSidebarOpen}
+        entityType="document"
+        entityId={documentSidebarId ?? ''}
+        workspaceId={workspaceId}
+      >
+        {documentSidebarId && (
+          <DocumentDetailView documentId={documentSidebarId} workspaceId={workspaceId} />
         )}
       </EntityDetailSidebar>
     </Tabs>

@@ -30,6 +30,7 @@ interface StatementCellProps {
   documentFileName: string | null
   documents: WorkspaceDocument[]
   workspaceId: string
+  onDocumentClick?: (documentId: string) => void
 }
 
 export function StatementCell({
@@ -38,6 +39,7 @@ export function StatementCell({
   documentFileName,
   documents,
   workspaceId,
+  onDocumentClick,
 }: StatementCellProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -89,7 +91,20 @@ export function StatementCell({
           {currentDocName ? (
             <>
               <FileText className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{currentDocName}</span>
+              {onDocumentClick && currentDocId ? (
+                <span
+                  className="truncate hover:underline cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onDocumentClick(currentDocId)
+                  }}
+                >
+                  {currentDocName}
+                </span>
+              ) : (
+                <span className="truncate">{currentDocName}</span>
+              )}
             </>
           ) : (
             <span className="group-hover/row:visible invisible flex items-center gap-1 text-muted-foreground/60">

@@ -58,7 +58,8 @@ export function getTransactionColumns(
   documents: WorkspaceDocument[],
   workspaceId: string,
   onSourceClick?: (sourceKey: string) => void,
-  onCategoryClick?: (categoryId: string) => void
+  onCategoryClick?: (categoryId: string) => void,
+  onDocumentClick?: (documentId: string) => void
 ): ColumnDef<ExplorerTransaction>[] {
   return [
     {
@@ -166,6 +167,7 @@ export function getTransactionColumns(
           documentFileName={row.original.documentFileName}
           documents={documents}
           workspaceId={workspaceId}
+          onDocumentClick={onDocumentClick}
         />
       ),
     },

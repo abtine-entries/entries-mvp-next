@@ -126,23 +126,47 @@ function formatDate(dateStr: string): string {
   })
 }
 
-export const columns: ColumnDef<SerializedDocument>[] = [
+export function getDocColumns(
+  onDocumentClick?: (documentId: string) => void
+): ColumnDef<SerializedDocument>[] {
+  return [
   {
     accessorKey: 'fileName',
     header: ({ column }) => <SortableHeader column={column}>File Name</SortableHeader>,
-    cell: ({ row }) => (
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
-          {getFileIcon(row.original.fileType)}
+    cell: ({ row }) => {
+      const docId = row.original.id
+      return onDocumentClick ? (
+        <button
+          className="flex items-center gap-3 min-w-0 cursor-pointer hover:underline"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDocumentClick(docId)
+          }}
+        >
+          <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
+            {getFileIcon(row.original.fileType)}
+          </div>
+          <div className="min-w-0 text-left">
+            <p className="text-sm font-medium truncate">{row.original.fileName}</p>
+            {row.original.folder && (
+              <p className="text-xs text-muted-foreground">{row.original.folder}</p>
+            )}
+          </div>
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
+            {getFileIcon(row.original.fileType)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{row.original.fileName}</p>
+            {row.original.folder && (
+              <p className="text-xs text-muted-foreground">{row.original.folder}</p>
+            )}
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{row.original.fileName}</p>
-          {row.original.folder && (
-            <p className="text-xs text-muted-foreground">{row.original.folder}</p>
-          )}
-        </div>
-      </div>
-    ),
+      )
+    },
   },
   {
     accessorKey: 'fileType',
@@ -202,4 +226,5 @@ export const columns: ColumnDef<SerializedDocument>[] = [
       </div>
     ),
   },
-]
+  ]
+}

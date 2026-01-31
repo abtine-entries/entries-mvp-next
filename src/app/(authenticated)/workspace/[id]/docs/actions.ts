@@ -41,6 +41,49 @@ export async function getDocuments(workspaceId: string): Promise<SerializedDocum
   }))
 }
 
+export async function getDocumentDetail(workspaceId: string, documentId: string) {
+  const document = await prisma.document.findFirst({
+    where: { id: documentId, workspaceId },
+    include: {
+      uploadedBy: { select: { name: true } },
+    },
+  })
+
+  if (!document) return null
+
+  const linkedTransactions = await prisma.transaction.findMany({
+    where: { documentId, workspaceId },
+    orderBy: { date: 'desc' },
+    include: {
+      vendor: { select: { name: true } },
+      category: { select: { name: true } },
+    },
+  })
+
+  return {
+    id: document.id,
+    fileName: document.fileName,
+    fileType: document.fileType,
+    fileSize: document.fileSize,
+    storagePath: document.storagePath,
+    folder: document.folder,
+    status: document.status,
+    uploadedByName: document.uploadedBy.name,
+    createdAt: document.createdAt.toISOString(),
+    linkedTransactions: linkedTransactions.map((t) => ({
+      id: t.id,
+      date: t.date.toISOString(),
+      description: t.description,
+      amount: t.amount.toNumber(),
+      vendorName: t.vendor?.name ?? null,
+      categoryName: t.category?.name ?? null,
+    })),
+  }
+}
+
+export type DocumentDetail = NonNullable<Awaited<ReturnType<typeof getDocumentDetail>>>
+export type DocumentDetailTransaction = DocumentDetail['linkedTransactions'][number]
+
 export async function uploadDocument(
   workspaceId: string,
   fileName: string,

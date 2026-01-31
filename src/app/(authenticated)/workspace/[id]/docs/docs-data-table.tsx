@@ -22,16 +22,19 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import { columns } from './columns'
+import { getDocColumns } from './columns'
+import { EntityDetailSidebar } from '@/components/ui/entity-detail-sidebar'
+import { DocumentDetailView } from './document-detail-view'
 import type { SerializedDocument } from './actions'
 
 const PAGE_SIZE = 25
 
 interface DocsDataTableProps {
   data: SerializedDocument[]
+  workspaceId: string
 }
 
-function DocsDataTableInner({ data }: DocsDataTableProps) {
+function DocsDataTableInner({ data, workspaceId }: DocsDataTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -43,6 +46,18 @@ function DocsDataTableInner({ data }: DocsDataTableProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [sorting, setSorting] = useState<SortingState>(
     initialSortId ? [{ id: initialSortId, desc: initialSortDesc }] : []
+  )
+  const [documentSidebarId, setDocumentSidebarId] = useState<string | null>(null)
+  const [documentSidebarOpen, setDocumentSidebarOpen] = useState(false)
+
+  const handleDocumentClick = useCallback((documentId: string) => {
+    setDocumentSidebarId(documentId)
+    setDocumentSidebarOpen(true)
+  }, [])
+
+  const columns = useMemo(
+    () => getDocColumns(handleDocumentClick),
+    [handleDocumentClick]
   )
 
   const updateParams = useCallback(
@@ -194,6 +209,18 @@ function DocsDataTableInner({ data }: DocsDataTableProps) {
           </div>
         </div>
       )}
+
+      <EntityDetailSidebar
+        open={documentSidebarOpen}
+        onOpenChange={setDocumentSidebarOpen}
+        entityType="document"
+        entityId={documentSidebarId ?? ''}
+        workspaceId={workspaceId}
+      >
+        {documentSidebarId && (
+          <DocumentDetailView documentId={documentSidebarId} workspaceId={workspaceId} />
+        )}
+      </EntityDetailSidebar>
     </div>
   )
 }

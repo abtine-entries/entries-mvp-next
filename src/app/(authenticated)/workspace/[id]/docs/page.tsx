@@ -40,7 +40,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
           <DocumentUpload workspaceId={workspace.id} />
 
           {/* Documents table */}
-          <DocsDataTable data={documents} />
+          <DocsDataTable data={documents} workspaceId={workspace.id} />
         </div>
       </div>
     </div>
