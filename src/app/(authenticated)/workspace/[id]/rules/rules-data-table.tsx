@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, Suspense } from 'react'
+import { useState, useMemo, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
   useReactTable,
@@ -23,20 +23,42 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getRulesColumns, type RuleData } from './columns'
+import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
+import { buildRelationColumns } from '@/components/ui/relation-column-utils'
+import type { RelationColumnRecord, RelationLinksMap } from '@/app/(authenticated)/workspace/[id]/explorer/relation-actions'
 
 const PAGE_SIZE = 25
 
 interface RulesDataTableProps {
   rules: RuleData[]
   workspaceId: string
+  relationColumns: RelationColumnRecord[]
+  relationLinksMap: Record<string, RelationLinksMap>
 }
 
-function RulesDataTableInner({ rules, workspaceId }: RulesDataTableProps) {
+function RulesDataTableInner({ rules, workspaceId, relationColumns: relCols, relationLinksMap }: RulesDataTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
-  const columns = getRulesColumns(workspaceId)
+  const dynamicRelationColumns = useMemo(
+    () => buildRelationColumns<RuleData>(relCols, relationLinksMap, workspaceId),
+    [relCols, relationLinksMap, workspaceId]
+  )
+
+  const columns = useMemo(() => {
+    const staticCols = getRulesColumns(workspaceId)
+    // Insert relation columns before the 'status' column (last column acts like actions)
+    const statusIdx = staticCols.findIndex((c) => c.id === 'status')
+    if (statusIdx >= 0 && dynamicRelationColumns.length > 0) {
+      return [
+        ...staticCols.slice(0, statusIdx),
+        ...dynamicRelationColumns,
+        ...staticCols.slice(statusIdx),
+      ]
+    }
+    return [...staticCols, ...dynamicRelationColumns]
+  }, [workspaceId, dynamicRelationColumns])
 
   const initialSearch = searchParams.get('q') ?? ''
   const initialSortId = searchParams.get('sortBy') ?? ''
@@ -134,13 +156,19 @@ function RulesDataTableInner({ rules, workspaceId }: RulesDataTableProps) {
                     : flexRender(header.column.columnDef.header, header.getContext())}
                 </TableHead>
               ))}
+              <TableHead style={{ width: 40 }}>
+                <AddRelationColumnButton
+                  workspaceId={workspaceId}
+                  sourceTable="rules"
+                />
+              </TableHead>
             </TableRow>
           ))}
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} className="group/row">
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
@@ -151,12 +179,13 @@ function RulesDataTableInner({ rules, workspaceId }: RulesDataTableProps) {
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                <TableCell />
               </TableRow>
             ))
           ) : (
             <TableRow>
               <TableCell
-                colSpan={columns.length}
+                colSpan={columns.length + 1}
                 className="h-24 text-center text-muted-foreground"
               >
                 No rules found.

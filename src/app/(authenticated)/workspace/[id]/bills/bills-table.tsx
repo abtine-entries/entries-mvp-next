@@ -50,6 +50,9 @@ import { ArrowUp, ArrowDown, X } from 'lucide-react'
 import { SiWise } from '@icons-pack/react-simple-icons'
 import type { SerializedBill } from './actions'
 import { createBatchPayment, createBatchPaymentDraft } from './actions'
+import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
+import { buildRelationColumns } from '@/components/ui/relation-column-utils'
+import type { RelationColumnRecord, RelationLinksMap } from '@/app/(authenticated)/workspace/[id]/explorer/relation-actions'
 
 const statusVariant: Record<string, 'success' | 'warning' | 'error' | 'secondary'> = {
   authorized: 'success',
@@ -58,7 +61,7 @@ const statusVariant: Record<string, 'success' | 'warning' | 'error' | 'secondary
   paid: 'secondary',
 }
 
-const columns: ColumnDef<SerializedBill>[] = [
+const staticColumns: ColumnDef<SerializedBill>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -136,9 +139,11 @@ interface BillsTableProps {
   bills: SerializedBill[]
   workspaceId: string
   onRowClick?: (bill: SerializedBill) => void
+  relationColumns?: RelationColumnRecord[]
+  relationLinksMap?: Record<string, RelationLinksMap>
 }
 
-function BillsTableInner({ bills, workspaceId, onRowClick }: BillsTableProps) {
+function BillsTableInner({ bills, workspaceId, onRowClick, relationColumns: relCols, relationLinksMap: relLinksMap }: BillsTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -202,6 +207,20 @@ function BillsTableInner({ bills, workspaceId, onRowClick }: BillsTableProps) {
     },
     [sorting, updateParams]
   )
+
+  const dynamicRelationColumns = useMemo(
+    () => relCols && relLinksMap
+      ? buildRelationColumns<SerializedBill>(relCols, relLinksMap, workspaceId)
+      : [],
+    [relCols, relLinksMap, workspaceId]
+  )
+
+  const columns = useMemo(
+    () => [...staticColumns, ...dynamicRelationColumns],
+    [dynamicRelationColumns]
+  )
+
+  const hasRelationColumns = dynamicRelationColumns.length > 0 || relCols !== undefined
 
   const filteredBills = useMemo(() => {
     if (statusFilter === 'all') return bills
@@ -384,6 +403,14 @@ function BillsTableInner({ bills, workspaceId, onRowClick }: BillsTableProps) {
                   </TableHead>
                 )
               })}
+              {hasRelationColumns && (
+                <TableHead style={{ width: 40 }}>
+                  <AddRelationColumnButton
+                    workspaceId={workspaceId}
+                    sourceTable="bills"
+                  />
+                </TableHead>
+              )}
             </TableRow>
           ))}
         </TableHeader>
@@ -393,7 +420,7 @@ function BillsTableInner({ bills, workspaceId, onRowClick }: BillsTableProps) {
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() ? 'selected' : undefined}
-                className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : undefined}
+                className={`group/row ${onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                 onClick={() => onRowClick?.(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -405,11 +432,12 @@ function BillsTableInner({ bills, workspaceId, onRowClick }: BillsTableProps) {
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                {hasRelationColumns && <TableCell />}
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
+              <TableCell colSpan={columns.length + (hasRelationColumns ? 1 : 0)} className="h-24 text-center">
                 No bills found. Bills from connected accounting software will appear here.
               </TableCell>
             </TableRow>

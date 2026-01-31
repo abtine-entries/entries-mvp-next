@@ -25,16 +25,21 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { getDocColumns } from './columns'
 import { EntityDetailSidebar } from '@/components/ui/entity-detail-sidebar'
 import { DocumentDetailView } from './document-detail-view'
+import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
+import { buildRelationColumns } from '@/components/ui/relation-column-utils'
 import type { SerializedDocument } from './actions'
+import type { RelationColumnRecord, RelationLinksMap } from '@/app/(authenticated)/workspace/[id]/explorer/relation-actions'
 
 const PAGE_SIZE = 25
 
 interface DocsDataTableProps {
   data: SerializedDocument[]
   workspaceId: string
+  relationColumns: RelationColumnRecord[]
+  relationLinksMap: Record<string, RelationLinksMap>
 }
 
-function DocsDataTableInner({ data, workspaceId }: DocsDataTableProps) {
+function DocsDataTableInner({ data, workspaceId, relationColumns, relationLinksMap }: DocsDataTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -55,10 +60,24 @@ function DocsDataTableInner({ data, workspaceId }: DocsDataTableProps) {
     setDocumentSidebarOpen(true)
   }, [])
 
-  const columns = useMemo(
-    () => getDocColumns(handleDocumentClick),
-    [handleDocumentClick]
+  const dynamicRelationColumns = useMemo(
+    () => buildRelationColumns<SerializedDocument>(relationColumns, relationLinksMap, workspaceId),
+    [relationColumns, relationLinksMap, workspaceId]
   )
+
+  const columns = useMemo(() => {
+    const staticCols = getDocColumns(handleDocumentClick)
+    // Insert relation columns before the last 'actions' column
+    const actionsIdx = staticCols.findIndex((c) => c.id === 'actions')
+    if (actionsIdx >= 0 && dynamicRelationColumns.length > 0) {
+      return [
+        ...staticCols.slice(0, actionsIdx),
+        ...dynamicRelationColumns,
+        ...staticCols.slice(actionsIdx),
+      ]
+    }
+    return [...staticCols, ...dynamicRelationColumns]
+  }, [handleDocumentClick, dynamicRelationColumns])
 
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
@@ -147,13 +166,19 @@ function DocsDataTableInner({ data, workspaceId }: DocsDataTableProps) {
                     : flexRender(header.column.columnDef.header, header.getContext())}
                 </TableHead>
               ))}
+              <TableHead style={{ width: 40 }}>
+                <AddRelationColumnButton
+                  workspaceId={workspaceId}
+                  sourceTable="documents"
+                />
+              </TableHead>
             </TableRow>
           ))}
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} className="group/row">
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
@@ -164,12 +189,13 @@ function DocsDataTableInner({ data, workspaceId }: DocsDataTableProps) {
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                <TableCell />
               </TableRow>
             ))
           ) : (
             <TableRow>
               <TableCell
-                colSpan={columns.length}
+                colSpan={columns.length + 1}
                 className="h-24 text-center text-muted-foreground"
               >
                 No documents uploaded yet. Drag and drop files above or click Browse.

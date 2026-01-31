@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/layout'
 import { Activity, Building2 } from 'lucide-react'
 import { org } from '@/lib/config'
 import { EventFeedDataTable } from './event-feed-data-table'
+import { getRelationColumns, getRelationLinks } from '../explorer/relation-actions'
+import type { RelationLinksMap } from '../explorer/relation-actions'
 
 interface EventFeedPageProps {
   params: Promise<{ id: string }>
@@ -70,6 +72,8 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
   }
 
   // Build feed items with source info
+  const relationColumns = await getRelationColumns(id, 'events')
+
   const feedItems = events.map((event) => {
     let sourceInfo: { source: string; sourceLabel: string }
 
@@ -95,6 +99,18 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
     }
   })
 
+  // Batch-fetch relation links for all event IDs per relation column
+  const eventIds = feedItems.map((e) => e.id)
+  const relationLinksMap: Record<string, RelationLinksMap> = {}
+  if (relationColumns.length > 0 && eventIds.length > 0) {
+    const linkResults = await Promise.all(
+      relationColumns.map((col) => getRelationLinks(col.id, eventIds))
+    )
+    for (let i = 0; i < relationColumns.length; i++) {
+      relationLinksMap[relationColumns[i].id] = linkResults[i]
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -105,7 +121,12 @@ export default async function EventFeedPage({ params }: EventFeedPageProps) {
         ]}
       />
       <div className="flex-1 px-10 py-6 overflow-auto">
-        <EventFeedDataTable data={feedItems} workspaceId={workspace.id} />
+        <EventFeedDataTable
+          data={feedItems}
+          workspaceId={workspace.id}
+          relationColumns={relationColumns}
+          relationLinksMap={relationLinksMap}
+        />
       </div>
     </div>
   )

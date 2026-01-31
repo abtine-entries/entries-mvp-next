@@ -6,6 +6,8 @@ import { Building2, FileText } from 'lucide-react'
 import { getDocuments } from './actions'
 import { DocsDataTable } from './docs-data-table'
 import { DocumentUpload } from './document-upload'
+import { getRelationColumns, getRelationLinks } from '../explorer/relation-actions'
+import type { RelationLinksMap } from '../explorer/relation-actions'
 
 interface DocsPageProps {
   params: Promise<{ id: string }>
@@ -23,7 +25,22 @@ export default async function DocsPage({ params }: DocsPageProps) {
     notFound()
   }
 
-  const documents = await getDocuments(workspace.id)
+  const [documents, relationColumns] = await Promise.all([
+    getDocuments(workspace.id),
+    getRelationColumns(workspace.id, 'documents'),
+  ])
+
+  // Batch-fetch relation links for all document IDs per relation column
+  const documentIds = documents.map((d) => d.id)
+  const relationLinksMap: Record<string, RelationLinksMap> = {}
+  if (relationColumns.length > 0 && documentIds.length > 0) {
+    const linkResults = await Promise.all(
+      relationColumns.map((col) => getRelationLinks(col.id, documentIds))
+    )
+    for (let i = 0; i < relationColumns.length; i++) {
+      relationLinksMap[relationColumns[i].id] = linkResults[i]
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -40,7 +57,12 @@ export default async function DocsPage({ params }: DocsPageProps) {
           <DocumentUpload workspaceId={workspace.id} />
 
           {/* Documents table */}
-          <DocsDataTable data={documents} workspaceId={workspace.id} />
+          <DocsDataTable
+            data={documents}
+            workspaceId={workspace.id}
+            relationColumns={relationColumns}
+            relationLinksMap={relationLinksMap}
+          />
         </div>
       </div>
     </div>

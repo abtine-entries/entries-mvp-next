@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { columns, type EventFeedItem } from './columns'
+import { columns as staticColumns, type EventFeedItem } from './columns'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -45,6 +45,9 @@ import { Search, CalendarIcon, Clock2Icon, X, ChevronLeft, ChevronRight } from '
 import { format } from 'date-fns'
 import type { DateRange } from 'react-day-picker'
 import { EventDetailDrawer } from './event-detail-drawer'
+import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
+import { buildRelationColumns } from '@/components/ui/relation-column-utils'
+import type { RelationColumnRecord, RelationLinksMap } from '@/app/(authenticated)/workspace/[id]/explorer/relation-actions'
 
 const PAGE_SIZE = 25
 
@@ -64,9 +67,11 @@ function hasNonDefaultTime(range: DateRange | undefined): boolean {
 interface EventFeedDataTableProps {
   data: EventFeedItem[]
   workspaceId: string
+  relationColumns: RelationColumnRecord[]
+  relationLinksMap: Record<string, RelationLinksMap>
 }
 
-function EventFeedDataTableInner({ data, workspaceId }: EventFeedDataTableProps) {
+function EventFeedDataTableInner({ data, workspaceId, relationColumns, relationLinksMap }: EventFeedDataTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -184,6 +189,16 @@ function EventFeedDataTableInner({ data, workspaceId }: EventFeedDataTableProps)
       setDateRange({ ...dateRange, to: next })
     }
   }
+
+  const dynamicRelationColumns = useMemo(
+    () => buildRelationColumns<EventFeedItem>(relationColumns, relationLinksMap, workspaceId),
+    [relationColumns, relationLinksMap, workspaceId]
+  )
+
+  const columns = useMemo(
+    () => [...staticColumns, ...dynamicRelationColumns],
+    [dynamicRelationColumns]
+  )
 
   // Pre-filter by source and date range before passing to the table
   const preFiltered = useMemo(() => {
@@ -371,6 +386,12 @@ function EventFeedDataTableInner({ data, workspaceId }: EventFeedDataTableProps)
                     : flexRender(header.column.columnDef.header, header.getContext())}
                 </TableHead>
               ))}
+              <TableHead style={{ width: 40 }}>
+                <AddRelationColumnButton
+                  workspaceId={workspaceId}
+                  sourceTable="events"
+                />
+              </TableHead>
             </TableRow>
           ))}
         </TableHeader>
@@ -379,7 +400,7 @@ function EventFeedDataTableInner({ data, workspaceId }: EventFeedDataTableProps)
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-muted/50 group/row"
                 onClick={() => {
                   setSelectedEventId(row.original.id)
                   setDrawerOpen(true)
@@ -395,12 +416,13 @@ function EventFeedDataTableInner({ data, workspaceId }: EventFeedDataTableProps)
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                <TableCell />
               </TableRow>
             ))
           ) : (
             <TableRow>
               <TableCell
-                colSpan={columns.length}
+                colSpan={columns.length + 1}
                 className="h-24 text-center text-muted-foreground"
               >
                 No events match your filters.

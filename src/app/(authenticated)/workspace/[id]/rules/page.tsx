@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/layout'
 import { FileText, BookOpen, Building2 } from 'lucide-react'
 import { CreateRuleSheet } from './create-rule-sheet'
 import { RulesDataTable } from './rules-data-table'
+import { getRelationColumns, getRelationLinks } from '../explorer/relation-actions'
+import type { RelationLinksMap } from '../explorer/relation-actions'
 
 interface RulesPageProps {
   params: Promise<{ id: string }>
@@ -22,11 +24,26 @@ export default async function RulesPage({ params }: RulesPageProps) {
     notFound()
   }
 
-  const rules = await prisma.rule.findMany({
-    where: { workspaceId },
-    select: { id: true, ruleText: true, matchCount: true, isActive: true },
-    orderBy: { createdAt: 'desc' },
-  })
+  const [rules, relationColumns] = await Promise.all([
+    prisma.rule.findMany({
+      where: { workspaceId },
+      select: { id: true, ruleText: true, matchCount: true, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    getRelationColumns(workspaceId, 'rules'),
+  ])
+
+  // Batch-fetch relation links for all rule IDs per relation column
+  const ruleIds = rules.map((r) => r.id)
+  const relationLinksMap: Record<string, RelationLinksMap> = {}
+  if (relationColumns.length > 0 && ruleIds.length > 0) {
+    const linkResults = await Promise.all(
+      relationColumns.map((col) => getRelationLinks(col.id, ruleIds))
+    )
+    for (let i = 0; i < relationColumns.length; i++) {
+      relationLinksMap[relationColumns[i].id] = linkResults[i]
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -54,7 +71,12 @@ export default async function RulesPage({ params }: RulesPageProps) {
               </p>
             </div>
           ) : (
-            <RulesDataTable rules={rules} workspaceId={workspaceId} />
+            <RulesDataTable
+              rules={rules}
+              workspaceId={workspaceId}
+              relationColumns={relationColumns}
+              relationLinksMap={relationLinksMap}
+            />
           )}
         </div>
       </div>

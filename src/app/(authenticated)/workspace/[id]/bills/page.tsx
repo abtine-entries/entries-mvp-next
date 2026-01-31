@@ -6,6 +6,8 @@ import { org } from '@/lib/config'
 import { getBills, getBatchPayments } from './actions'
 import { BillsTable } from './bills-table'
 import { PaymentHistory } from './payment-history'
+import { getRelationColumns, getRelationLinks } from '../explorer/relation-actions'
+import type { RelationLinksMap } from '../explorer/relation-actions'
 
 interface BillsPageProps {
   params: Promise<{ id: string }>
@@ -23,10 +25,23 @@ export default async function BillsPage({ params }: BillsPageProps) {
     notFound()
   }
 
-  const [bills, batchPayments] = await Promise.all([
+  const [bills, batchPayments, relationColumns] = await Promise.all([
     getBills(workspace.id),
     getBatchPayments(workspace.id),
+    getRelationColumns(workspace.id, 'bills'),
   ])
+
+  // Batch-fetch relation links for all bill IDs per relation column
+  const billIds = bills.map((b) => b.id)
+  const relationLinksMap: Record<string, RelationLinksMap> = {}
+  if (relationColumns.length > 0 && billIds.length > 0) {
+    const linkResults = await Promise.all(
+      relationColumns.map((col) => getRelationLinks(col.id, billIds))
+    )
+    for (let i = 0; i < relationColumns.length; i++) {
+      relationLinksMap[relationColumns[i].id] = linkResults[i]
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -53,7 +68,12 @@ export default async function BillsPage({ params }: BillsPageProps) {
         ]}
       />
       <div className="flex-1 px-10 py-6 overflow-auto space-y-8">
-        <BillsTable bills={bills} workspaceId={workspace.id} />
+        <BillsTable
+          bills={bills}
+          workspaceId={workspace.id}
+          relationColumns={relationColumns}
+          relationLinksMap={relationLinksMap}
+        />
         <PaymentHistory batchPayments={batchPayments} />
       </div>
     </div>
