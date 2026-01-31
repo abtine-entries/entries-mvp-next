@@ -1,14 +1,16 @@
 'use client'
 
-import { useRef, useEffect, useState, useTransition } from 'react'
+import { useRef, useEffect, useState, useTransition, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowUp } from 'lucide-react'
+import { ArrowUp, PanelRightClose, PanelRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { sendEsmeMessage } from './actions'
 import { CanvasBlock } from './canvas-block'
 import { EsmeAlertTray } from './esme-alert-tray'
 import type { CanvasBlock as CanvasBlockType, SerializedAlert } from './types'
+
+const STORAGE_KEY = 'esme-alert-tray-collapsed'
 
 interface EsmeCanvasProps {
   workspaceId: string
@@ -22,6 +24,27 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
   const [isPending, startTransition] = useTransition()
+  const [trayCollapsed, setTrayCollapsed] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+
+  // Read localStorage + responsive default on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored !== null) {
+      setTrayCollapsed(stored === 'true')
+    } else if (window.matchMedia('(max-width: 1023px)').matches) {
+      setTrayCollapsed(true)
+    }
+    setHydrated(true)
+  }, [])
+
+  const toggleTray = useCallback(() => {
+    setTrayCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem(STORAGE_KEY, String(next))
+      return next
+    })
+  }, [])
 
   // Auto-scroll to newest message on load and when messages change
   useEffect(() => {
@@ -63,7 +86,7 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex overflow-hidden relative">
       {/* Main canvas area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Scrollable block list */}
@@ -114,17 +137,47 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }
       </div>
 
       {/* Right panel — alert tray */}
-      <div className="w-80 border-l border-border flex flex-col">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+      <div
+        className="border-l border-border flex flex-col overflow-hidden transition-all duration-200"
+        style={{ width: hydrated && trayCollapsed ? 0 : 320, borderLeftWidth: hydrated && trayCollapsed ? 0 : undefined }}
+      >
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between min-w-[320px]">
           <h3 className="text-sm font-semibold">Alerts</h3>
-          {alerts.length > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {alerts.length}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {alerts.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {alerts.length}
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={toggleTray}
+              title="Collapse alert tray"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <EsmeAlertTray alerts={alerts} />
       </div>
+
+      {/* Floating expand button when tray is collapsed */}
+      {hydrated && trayCollapsed && (
+        <button
+          onClick={toggleTray}
+          className="absolute right-0 top-3 flex items-center gap-1.5 rounded-l-lg border border-r-0 border-border bg-background px-2 py-2 shadow-sm transition-opacity hover:bg-muted"
+          title="Expand alert tray"
+        >
+          <PanelRight className="h-4 w-4" />
+          {alerts.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              {alerts.length}
+            </Badge>
+          )}
+        </button>
+      )}
     </div>
   )
 }
