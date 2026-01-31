@@ -113,7 +113,7 @@ export async function universalSearch(query: string): Promise<SearchResults> {
       type: 'workspace' as const,
       title: ws.name,
       detail: 'Workspace',
-      href: `/workspace/${ws.id}/alerts`,
+      href: `/workspace/${ws.id}/esme`,
     })),
 
     transactions: transactions.map((txn) => ({

@@ -170,7 +170,7 @@ export function SearchModal({ open, onOpenChange, workspaces }: SearchModalProps
                       <CommandItem
                         key={ws.id}
                         value={ws.name}
-                        onSelect={() => navigateTo(`/workspace/${ws.id}/alerts`)}
+                        onSelect={() => navigateTo(`/workspace/${ws.id}/esme`)}
                       >
                         <Building2 className="h-4 w-4" />
                         <span>{ws.name}</span>
