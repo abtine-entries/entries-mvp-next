@@ -46,6 +46,7 @@ import { SourceDetailView } from './source-detail-view'
 import { VendorDetailView } from './vendor-detail-view'
 import { CategoryDetailView } from './category-detail-view'
 import { DocumentDetailView } from '../docs/document-detail-view'
+import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
 import type { ExplorerData, WorkspaceDocument } from './actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -87,6 +88,7 @@ interface PaginatedTableProps<TData extends RowData> {
   columnFilters: ColumnFiltersState
   onColumnFiltersChange: (filters: ColumnFiltersState) => void
   onRowClick?: (row: TData) => void
+  headerExtra?: React.ReactNode
 }
 
 function PaginatedTable<TData extends RowData>({
@@ -100,6 +102,7 @@ function PaginatedTable<TData extends RowData>({
   columnFilters,
   onColumnFiltersChange,
   onRowClick,
+  headerExtra,
 }: PaginatedTableProps<TData>) {
   const table = useReactTable({
     data,
@@ -152,6 +155,9 @@ function PaginatedTable<TData extends RowData>({
                       )}
                 </TableHead>
               ))}
+              {headerExtra && (
+                <TableHead style={{ width: 40 }}>{headerExtra}</TableHead>
+              )}
             </TableRow>
           ))}
         </TableHeader>
@@ -160,7 +166,7 @@ function PaginatedTable<TData extends RowData>({
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : undefined}
+                className={onRowClick ? 'cursor-pointer hover:bg-muted/50 group/row' : 'group/row'}
                 onClick={() => onRowClick?.(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -179,12 +185,13 @@ function PaginatedTable<TData extends RowData>({
                     )}
                   </TableCell>
                 ))}
+                {headerExtra && <TableCell />}
               </TableRow>
             ))
           ) : (
             <TableRow>
               <TableCell
-                colSpan={columns.length}
+                colSpan={columns.length + (headerExtra ? 1 : 0)}
                 className="h-24 text-center text-muted-foreground"
               >
                 {emptyMessage}
@@ -565,6 +572,12 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
             setSidebarItem({ tab: 'transactions', data: row })
             setSidebarOpen(true)
           }}
+          headerExtra={
+            <AddRelationColumnButton
+              workspaceId={workspaceId}
+              sourceTable="transactions"
+            />
+          }
         />
       </TabsContent>
 
