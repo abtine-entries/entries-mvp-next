@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, MessageCircleQuestion, RefreshCw, TrendingUp, Bell, CheckCircle2, Sparkles, DollarSign, Tag, Activity } from 'lucide-react'
+import { AlertTriangle, MessageCircleQuestion, RefreshCw, TrendingUp, Bell, CheckCircle2, DollarSign, Tag, Activity } from 'lucide-react'
+import { EsmeAvatar } from '@/components/esme-avatar'
 import { ConfirmResponse } from '../alerts/confirm-response'
 import { SelectResponse } from '../alerts/select-response'
 import { TextResponse } from '../alerts/text-response'
@@ -121,7 +122,7 @@ export function CanvasBlock({ block, workspaceId }: CanvasBlockProps) {
       return (
         <div className="space-y-3 rounded-xl bg-primary/5 border border-primary/20 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
-            <Sparkles className="h-4 w-4" />
+            <EsmeAvatar className="h-4 w-4" />
             <span>Daily Briefing</span>
           </div>
           <p className="text-base font-medium">{block.greeting}</p>
@@ -129,7 +130,7 @@ export function CanvasBlock({ block, workspaceId }: CanvasBlockProps) {
           {block.stats.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {block.stats.map((stat) => {
-                const StatIcon = statIcons[stat.icon] ?? Sparkles
+                const StatIcon = statIcons[stat.icon] ?? Activity
                 return (
                   <span
                     key={stat.label}

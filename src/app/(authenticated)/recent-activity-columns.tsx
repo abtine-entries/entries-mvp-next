@@ -3,7 +3,6 @@
 import { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import {
-  Sparkles,
   ArrowLeftRight,
   Tags,
   Plug,
@@ -15,6 +14,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react'
+import { EsmeAvatar } from '@/components/esme-avatar'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
 import type { ConnectorType } from '@/components/ui/connector-logo-config'
 import type { RecentActivityEvent } from './actions'
@@ -59,7 +59,7 @@ function formatEventTime(date: Date): string {
 
 function SourceIcon({ source }: { source: string }) {
   if (source === 'entries') {
-    return <Sparkles className="h-4 w-4 text-primary" />
+    return <EsmeAvatar className="h-4 w-4" />
   }
 
   const connectorTypes: ConnectorType[] = [

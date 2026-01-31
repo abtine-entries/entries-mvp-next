@@ -36,9 +36,15 @@ import {
   ArrowUpDown,
 } from 'lucide-react'
 import { EsmeAvatar } from '@/components/esme-avatar'
-import type { AlertSummaryWorkspace } from './actions'
 
 const PAGE_SIZE = 25
+
+export type WorkspaceAlert = {
+  id: string
+  title: string
+  type: string
+  priority: string
+}
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   anomaly: AlertTriangle,
@@ -47,28 +53,18 @@ const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   insight: TrendingUp,
 }
 
-function getEsmeGreeting(totalAlerts: number, workspaceCount: number): string {
+function getEsmeGreeting(totalAlerts: number): string {
   const hour = new Date().getHours()
   const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   if (totalAlerts === 0) {
-    return `${timeGreeting}! All clear — no alerts across your clients.`
+    return `${timeGreeting}! All clear — no alerts for this client.`
   }
 
-  const clientWord = workspaceCount === 1 ? 'client needs' : 'clients need'
-  return `${timeGreeting}! ${workspaceCount} ${clientWord} attention today.`
+  const alertWord = totalAlerts === 1 ? 'alert' : 'alerts'
+  return `${timeGreeting}! ${totalAlerts} ${alertWord} need your attention.`
 }
 
-type FlatAlert = {
-  id: string
-  title: string
-  type: string
-  priority: string
-  workspaceId: string
-  workspaceName: string
-}
-
-// --- Sortable header ---
 function SortableHeader({ column, children }: { column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: () => void }; children: React.ReactNode }) {
   const sorted = column.getIsSorted()
   return (
@@ -95,7 +91,7 @@ function TypeIcon({ type }: { type: string }) {
   return <Icon className="h-3.5 w-3.5 text-muted-foreground" />
 }
 
-const columns: ColumnDef<FlatAlert>[] = [
+const columns: ColumnDef<WorkspaceAlert>[] = [
   {
     id: 'type',
     size: 40,
@@ -114,16 +110,6 @@ const columns: ColumnDef<FlatAlert>[] = [
         </span>
       )
     },
-  },
-  {
-    accessorKey: 'workspaceName',
-    size: 140,
-    header: ({ column }) => <SortableHeader column={column}>Client</SortableHeader>,
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground truncate">
-        {row.getValue('workspaceName')}
-      </span>
-    ),
   },
   {
     accessorKey: 'priority',
@@ -151,32 +137,18 @@ const columns: ColumnDef<FlatAlert>[] = [
   },
 ]
 
-function AlertsSummaryInner({
-  workspaces,
+function WorkspaceAlertsSummaryInner({
+  alerts,
+  workspaceId,
 }: {
-  workspaces: AlertSummaryWorkspace[]
+  alerts: WorkspaceAlert[]
+  workspaceId: string
 }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
-  const totalAlerts = workspaces.reduce(
-    (sum, ws) => sum + ws.requiresActionCount + ws.fyiCount,
-    0
-  )
-
-  // Flatten alerts with workspace context
-  const flatAlerts: FlatAlert[] = useMemo(
-    () =>
-      workspaces.flatMap((ws) =>
-        ws.alerts.map((alert) => ({
-          ...alert,
-          workspaceId: ws.workspaceId,
-          workspaceName: ws.workspaceName,
-        }))
-      ),
-    [workspaces]
-  )
+  const totalAlerts = alerts.length
 
   const initialSearch = searchParams.get('eq') ?? ''
   const initialSortId = searchParams.get('esortBy') ?? 'priority'
@@ -224,7 +196,7 @@ function AlertsSummaryInner({
   )
 
   const table = useReactTable({
-    data: flatAlerts,
+    data: alerts,
     columns,
     state: { sorting, globalFilter: searchQuery },
     onSortingChange: (updater) => {
@@ -244,10 +216,9 @@ function AlertsSummaryInner({
   const currentPage = table.getState().pagination.pageIndex
   const filteredCount = table.getFilteredRowModel().rows.length
 
-  if (flatAlerts.length === 0) {
+  if (alerts.length === 0) {
     return (
       <div className="space-y-4">
-        {/* Esme greeting */}
         <div className="flex items-start gap-3">
           <EsmeAvatar className="h-8 w-8 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -255,7 +226,7 @@ function AlertsSummaryInner({
               <span className="text-sm font-semibold">Esme</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              {getEsmeGreeting(0, 0)}
+              {getEsmeGreeting(0)}
             </p>
           </div>
         </div>
@@ -278,7 +249,7 @@ function AlertsSummaryInner({
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {getEsmeGreeting(totalAlerts, workspaces.length)}
+            {getEsmeGreeting(totalAlerts)}
           </p>
         </div>
       </div>
@@ -321,7 +292,7 @@ function AlertsSummaryInner({
                 key={row.id}
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => {
-                  router.push(`/workspace/${row.original.workspaceId}/esme`)
+                  router.push(`/workspace/${workspaceId}/esme`)
                 }}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -353,7 +324,7 @@ function AlertsSummaryInner({
       {pageCount > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Page {currentPage + 1} of {pageCount} ({filteredCount} of {flatAlerts.length} rows)
+            Page {currentPage + 1} of {pageCount} ({filteredCount} of {alerts.length} rows)
           </span>
           <div className="flex items-center gap-1">
             <Button
@@ -383,10 +354,10 @@ function AlertsSummaryInner({
   )
 }
 
-export function AlertsSummary(props: { workspaces: AlertSummaryWorkspace[] }) {
+export function WorkspaceAlertsSummary(props: { alerts: WorkspaceAlert[]; workspaceId: string }) {
   return (
     <Suspense fallback={null}>
-      <AlertsSummaryInner {...props} />
+      <WorkspaceAlertsSummaryInner {...props} />
     </Suspense>
   )
 }

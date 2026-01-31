@@ -280,7 +280,7 @@ function ClientTableInner({ workspaces }: { workspaces: WorkspaceWithCounts[] })
               <TableRow
                 key={row.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => router.push(`/workspace/${row.original.id}/esme`)}
+                onClick={() => router.push(`/workspace/${row.original.id}/event-feed`)}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell

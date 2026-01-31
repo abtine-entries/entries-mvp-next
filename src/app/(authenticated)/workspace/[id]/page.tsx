@@ -9,6 +9,6 @@ export default async function WorkspaceDashboard({
 }: WorkspaceDashboardProps) {
   const { id } = await params
 
-  // Redirect to Esme as the default workspace home page
-  redirect(`/workspace/${id}/esme`)
+  // Redirect to Event Feed as the default workspace home page
+  redirect(`/workspace/${id}/event-feed`)
 }
