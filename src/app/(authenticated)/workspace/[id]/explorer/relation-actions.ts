@@ -86,8 +86,310 @@ export async function deleteRelationColumn(id: string, workspaceId: string) {
   revalidatePath(`/workspace/${workspaceId}/explorer`)
 }
 
+// --- RelationLink CRUD ---
+
+export async function addRelationLink(
+  relationColumnId: string,
+  sourceRecordId: string,
+  targetRecordId: string
+) {
+  const link = await prisma.relationLink.upsert({
+    where: {
+      relationColumnId_sourceRecordId_targetRecordId: {
+        relationColumnId,
+        sourceRecordId,
+        targetRecordId,
+      },
+    },
+    update: {},
+    create: {
+      relationColumnId,
+      sourceRecordId,
+      targetRecordId,
+    },
+  })
+
+  const column = await prisma.relationColumn.findUnique({
+    where: { id: relationColumnId },
+    select: { workspaceId: true },
+  })
+  if (column) {
+    revalidatePath(`/workspace/${column.workspaceId}/explorer`)
+  }
+
+  return link
+}
+
+export async function removeRelationLink(
+  relationColumnId: string,
+  sourceRecordId: string,
+  targetRecordId: string
+) {
+  await prisma.relationLink.deleteMany({
+    where: {
+      relationColumnId,
+      sourceRecordId,
+      targetRecordId,
+    },
+  })
+
+  const column = await prisma.relationColumn.findUnique({
+    where: { id: relationColumnId },
+    select: { workspaceId: true },
+  })
+  if (column) {
+    revalidatePath(`/workspace/${column.workspaceId}/explorer`)
+  }
+}
+
+export async function getRelationLinks(
+  relationColumnId: string,
+  sourceRecordIds: string[]
+): Promise<Record<string, { id: string; label: string }[]>> {
+  if (sourceRecordIds.length === 0) {
+    return {}
+  }
+
+  const links = await prisma.relationLink.findMany({
+    where: {
+      relationColumnId,
+      sourceRecordId: { in: sourceRecordIds },
+    },
+    include: {
+      relationColumn: {
+        select: { targetTable: true, workspaceId: true },
+      },
+    },
+  })
+
+  if (links.length === 0) {
+    return {}
+  }
+
+  const targetTable = links[0].relationColumn.targetTable
+  const workspaceId = links[0].relationColumn.workspaceId
+  const targetRecordIds = [...new Set(links.map((l) => l.targetRecordId))]
+
+  const labelMap = await getRecordLabels(
+    workspaceId,
+    targetTable,
+    targetRecordIds
+  )
+
+  const result: Record<string, { id: string; label: string }[]> = {}
+  for (const link of links) {
+    const existing = result[link.sourceRecordId] ?? []
+    existing.push({
+      id: link.targetRecordId,
+      label: labelMap.get(link.targetRecordId) ?? link.targetRecordId,
+    })
+    result[link.sourceRecordId] = existing
+  }
+
+  return result
+}
+
+async function getRecordLabels(
+  workspaceId: string,
+  targetTable: string,
+  recordIds: string[]
+): Promise<Map<string, string>> {
+  const labelMap = new Map<string, string>()
+  if (recordIds.length === 0) return labelMap
+
+  switch (targetTable) {
+    case 'transactions': {
+      const records = await prisma.transaction.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, description: true },
+      })
+      for (const r of records) labelMap.set(r.id, r.description)
+      break
+    }
+    case 'documents': {
+      const records = await prisma.document.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, fileName: true },
+      })
+      for (const r of records) labelMap.set(r.id, r.fileName)
+      break
+    }
+    case 'bills': {
+      const records = await prisma.bill.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, vendorName: true, invoiceNumber: true },
+      })
+      for (const r of records)
+        labelMap.set(r.id, `${r.vendorName} #${r.invoiceNumber}`)
+      break
+    }
+    case 'vendors': {
+      const records = await prisma.vendor.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, name: true },
+      })
+      for (const r of records) labelMap.set(r.id, r.name)
+      break
+    }
+    case 'categories': {
+      const records = await prisma.category.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, name: true },
+      })
+      for (const r of records) labelMap.set(r.id, r.name)
+      break
+    }
+    case 'events': {
+      const records = await prisma.event.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, title: true },
+      })
+      for (const r of records) labelMap.set(r.id, r.title)
+      break
+    }
+    case 'rules': {
+      const records = await prisma.rule.findMany({
+        where: { id: { in: recordIds }, workspaceId },
+        select: { id: true, ruleText: true },
+      })
+      for (const r of records) labelMap.set(r.id, r.ruleText)
+      break
+    }
+  }
+
+  return labelMap
+}
+
+export async function getTargetRecordOptions(
+  workspaceId: string,
+  targetTable: string,
+  search?: string
+) {
+  if (!isValidTable(targetTable)) {
+    throw new Error(`Invalid target table: ${targetTable}`)
+  }
+
+  const limit = 50
+
+  switch (targetTable) {
+    case 'transactions': {
+      const records = await prisma.transaction.findMany({
+        where: {
+          workspaceId,
+          ...(search
+            ? { description: { contains: search } }
+            : {}),
+        },
+        select: { id: true, description: true },
+        take: limit,
+        orderBy: { date: 'desc' },
+      })
+      return records.map((r) => ({ id: r.id, label: r.description }))
+    }
+    case 'documents': {
+      const records = await prisma.document.findMany({
+        where: {
+          workspaceId,
+          ...(search
+            ? { fileName: { contains: search } }
+            : {}),
+        },
+        select: { id: true, fileName: true },
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      })
+      return records.map((r) => ({ id: r.id, label: r.fileName }))
+    }
+    case 'bills': {
+      const records = await prisma.bill.findMany({
+        where: {
+          workspaceId,
+          ...(search
+            ? {
+                OR: [
+                  { vendorName: { contains: search } },
+                  { invoiceNumber: { contains: search } },
+                ],
+              }
+            : {}),
+        },
+        select: { id: true, vendorName: true, invoiceNumber: true },
+        take: limit,
+        orderBy: { dueDate: 'desc' },
+      })
+      return records.map((r) => ({
+        id: r.id,
+        label: `${r.vendorName} #${r.invoiceNumber}`,
+      }))
+    }
+    case 'vendors': {
+      const records = await prisma.vendor.findMany({
+        where: {
+          workspaceId,
+          ...(search ? { name: { contains: search } } : {}),
+        },
+        select: { id: true, name: true },
+        take: limit,
+        orderBy: { name: 'asc' },
+      })
+      return records.map((r) => ({ id: r.id, label: r.name }))
+    }
+    case 'categories': {
+      const records = await prisma.category.findMany({
+        where: {
+          workspaceId,
+          ...(search ? { name: { contains: search } } : {}),
+        },
+        select: { id: true, name: true },
+        take: limit,
+        orderBy: { name: 'asc' },
+      })
+      return records.map((r) => ({ id: r.id, label: r.name }))
+    }
+    case 'events': {
+      const records = await prisma.event.findMany({
+        where: {
+          workspaceId,
+          ...(search
+            ? { title: { contains: search } }
+            : {}),
+        },
+        select: { id: true, title: true },
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      })
+      return records.map((r) => ({ id: r.id, label: r.title }))
+    }
+    case 'rules': {
+      const records = await prisma.rule.findMany({
+        where: {
+          workspaceId,
+          ...(search
+            ? { ruleText: { contains: search } }
+            : {}),
+        },
+        select: { id: true, ruleText: true },
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      })
+      return records.map((r) => ({ id: r.id, label: r.ruleText }))
+    }
+    default: {
+      return []
+    }
+  }
+}
+
 // --- Types ---
 
 export type RelationColumnRecord = Awaited<
   ReturnType<typeof getRelationColumns>
 >[number]
+
+export type RelationLinkRecord = Awaited<ReturnType<typeof addRelationLink>>
+
+export type TargetRecordOption = Awaited<
+  ReturnType<typeof getTargetRecordOptions>
+>[number]
+
+export type RelationLinksMap = Record<string, { id: string; label: string }[]>
