@@ -52,6 +52,7 @@ model Workspace {
   esmeConfidences        EsmeConfidence[]
   bills                  Bill[]
   batchPayments          BatchPayment[]
+  relationColumns        RelationColumn[]
 }
 
 model Category {
@@ -345,4 +346,29 @@ model BatchPaymentItem {
 
   batchPayment BatchPayment @relation(fields: [batchPaymentId], references: [id])
   bill         Bill         @relation(fields: [billId], references: [id])
+}
+
+model RelationColumn {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  sourceTable String
+  targetTable String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  relationLinks RelationLink[]
+}
+
+model RelationLink {
+  id               String   @id @default(cuid())
+  relationColumnId String
+  sourceRecordId   String
+  targetRecordId   String
+  createdAt        DateTime @default(now())
+
+  relationColumn RelationColumn @relation(fields: [relationColumnId], references: [id], onDelete: Cascade)
+
+  @@unique([relationColumnId, sourceRecordId, targetRecordId])
 }

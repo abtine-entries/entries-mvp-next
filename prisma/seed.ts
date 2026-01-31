@@ -63,6 +63,8 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // Clean up existing data (order matters for foreign key constraints)
+  await prisma.relationLink.deleteMany()
+  await prisma.relationColumn.deleteMany()
   await prisma.batchPaymentItem.deleteMany()
   await prisma.batchPayment.deleteMany()
   await prisma.bill.deleteMany()
