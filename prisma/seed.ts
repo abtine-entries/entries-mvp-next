@@ -964,6 +964,55 @@ async function main() {
   const documentCount = await prisma.document.count()
   console.log(`✅ Created ${documentCount} sample documents across workspaces`)
 
+  // Link some transactions to documents and create Statement RelationColumn + RelationLinks
+  for (const ws of [workspace1, workspace2]) {
+    const wsDocuments = await prisma.document.findMany({
+      where: { workspaceId: ws.id },
+      select: { id: true },
+    })
+    const wsTransactions = await prisma.transaction.findMany({
+      where: { workspaceId: ws.id },
+      select: { id: true },
+      take: Math.min(wsDocuments.length, 6),
+    })
+
+    // Link a subset of transactions to documents via the legacy documentId FK
+    for (let i = 0; i < Math.min(wsTransactions.length, wsDocuments.length); i++) {
+      await prisma.transaction.update({
+        where: { id: wsTransactions[i].id },
+        data: { documentId: wsDocuments[i].id },
+      })
+    }
+
+    // Create the default 'Statement' RelationColumn
+    const statementCol = await prisma.relationColumn.create({
+      data: {
+        workspaceId: ws.id,
+        name: 'Statement',
+        sourceTable: 'transactions',
+        targetTable: 'documents',
+      },
+    })
+
+    // Create RelationLinks from the documentId links
+    const linkedTxns = await prisma.transaction.findMany({
+      where: { workspaceId: ws.id, documentId: { not: null } },
+      select: { id: true, documentId: true },
+    })
+
+    for (const t of linkedTxns) {
+      await prisma.relationLink.create({
+        data: {
+          relationColumnId: statementCol.id,
+          sourceRecordId: t.id,
+          targetRecordId: t.documentId!,
+        },
+      })
+    }
+
+    console.log(`✅ Created Statement relation column with ${linkedTxns.length} links for ${ws.name}`)
+  }
+
   // Create sample EsmeConfidence records for each workspace
   // Realistic progression: some categories well-established (tier 2), most at tier 1
   const confidenceRecords = [

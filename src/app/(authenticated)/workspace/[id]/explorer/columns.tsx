@@ -9,9 +9,7 @@ import type {
   ExplorerVendor,
   ExplorerCategory,
   ExplorerEvent,
-  WorkspaceDocument,
 } from './actions'
-import { StatementCell } from './statement-cell'
 
 function formatAmount(amount: number): string {
   const formatted = Math.abs(amount).toLocaleString('en-US', {
@@ -55,11 +53,8 @@ function SortableHeader({ label, column }: { label: string; column: { toggleSort
 
 // --- Transaction columns ---
 export function getTransactionColumns(
-  documents: WorkspaceDocument[],
-  workspaceId: string,
   onSourceClick?: (sourceKey: string) => void,
-  onCategoryClick?: (categoryId: string) => void,
-  onDocumentClick?: (documentId: string) => void
+  onCategoryClick?: (categoryId: string) => void
 ): ColumnDef<ExplorerTransaction>[] {
   return [
     {
@@ -155,21 +150,6 @@ export function getTransactionColumns(
           </Badge>
         )
       },
-    },
-    {
-      id: 'statement',
-      header: () => <span className="text-sm">Statement</span>,
-      size: 180,
-      cell: ({ row }) => (
-        <StatementCell
-          transactionId={row.original.id}
-          documentId={row.original.documentId}
-          documentFileName={row.original.documentFileName}
-          documents={documents}
-          workspaceId={workspaceId}
-          onDocumentClick={onDocumentClick}
-        />
-      ),
     },
   ]
 }

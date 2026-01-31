@@ -48,7 +48,7 @@ import { CategoryDetailView } from './category-detail-view'
 import { DocumentDetailView } from '../docs/document-detail-view'
 import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
 import { buildRelationColumns } from '@/components/ui/relation-column-utils'
-import type { ExplorerData, ExplorerTransaction, WorkspaceDocument } from './actions'
+import type { ExplorerData, ExplorerTransaction } from './actions'
 import type { RelationColumnRecord, RelationLinksMap } from './relation-actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -316,7 +316,6 @@ function FilterBar({
 // --- Main ExplorerTabs wrapper ---
 interface ExplorerTabsProps {
   data: ExplorerData
-  documents: WorkspaceDocument[]
   bills: SerializedBill[]
   batchPayments: SerializedBatchPayment[]
   workspaceId: string
@@ -332,7 +331,7 @@ export function ExplorerTabs(props: ExplorerTabsProps) {
   )
 }
 
-function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId, relationColumns, relationLinksMap }: ExplorerTabsProps) {
+function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationColumns, relationLinksMap }: ExplorerTabsProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -524,8 +523,8 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId,
   }, [])
 
   const txColumns = useMemo(
-    () => getTransactionColumns(documents, workspaceId, handleSourceClick, handleCategoryClick, handleDocumentClick),
-    [documents, workspaceId, handleSourceClick, handleCategoryClick, handleDocumentClick]
+    () => getTransactionColumns(handleSourceClick, handleCategoryClick),
+    [handleSourceClick, handleCategoryClick]
   )
 
   const vndrColumns = useMemo(

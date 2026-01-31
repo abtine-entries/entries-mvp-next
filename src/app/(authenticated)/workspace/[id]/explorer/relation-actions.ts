@@ -380,6 +380,70 @@ export async function getTargetRecordOptions(
   }
 }
 
+// --- Migration: Statement → RelationCell ---
+
+/**
+ * Idempotent migration: creates a default 'Statement' RelationColumn per workspace
+ * and converts existing Transaction.documentId values into RelationLink records.
+ * Safe to run multiple times — uses findFirst + createMany with skipDuplicates.
+ */
+export async function migrateStatementToRelation() {
+  const workspaces = await prisma.workspace.findMany({
+    select: { id: true },
+  })
+
+  for (const ws of workspaces) {
+    // Find or create the Statement relation column
+    let statementCol = await prisma.relationColumn.findFirst({
+      where: {
+        workspaceId: ws.id,
+        name: 'Statement',
+        sourceTable: 'transactions',
+        targetTable: 'documents',
+      },
+    })
+
+    if (!statementCol) {
+      statementCol = await prisma.relationColumn.create({
+        data: {
+          workspaceId: ws.id,
+          name: 'Statement',
+          sourceTable: 'transactions',
+          targetTable: 'documents',
+        },
+      })
+    }
+
+    // Find all transactions with a documentId in this workspace
+    const linkedTransactions = await prisma.transaction.findMany({
+      where: {
+        workspaceId: ws.id,
+        documentId: { not: null },
+      },
+      select: { id: true, documentId: true },
+    })
+
+    // Create RelationLink records (upsert for idempotency)
+    for (const t of linkedTransactions) {
+      await prisma.relationLink.upsert({
+        where: {
+          relationColumnId_sourceRecordId_targetRecordId: {
+            relationColumnId: statementCol.id,
+            sourceRecordId: t.id,
+            targetRecordId: t.documentId!,
+          },
+        },
+        update: {},
+        create: {
+          relationColumnId: statementCol.id,
+          sourceRecordId: t.id,
+          targetRecordId: t.documentId!,
+        },
+      })
+    }
+  }
+}
+
 // --- Types ---
 
 export type RelationColumnRecord = Awaited<

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2, Table2 } from 'lucide-react'
 import { org } from '@/lib/config'
-import { getExplorerData, getWorkspaceDocuments } from './actions'
+import { getExplorerData } from './actions'
 import { getBills, getBatchPayments } from '../bills/actions'
 import { getRelationColumns, getRelationLinks } from './relation-actions'
 import type { RelationLinksMap } from './relation-actions'
@@ -25,9 +25,8 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
     notFound()
   }
 
-  const [data, documents, bills, batchPayments, relationColumns] = await Promise.all([
+  const [data, bills, batchPayments, relationColumns] = await Promise.all([
     getExplorerData(workspace.id),
-    getWorkspaceDocuments(workspace.id),
     getBills(workspace.id),
     getBatchPayments(workspace.id),
     getRelationColumns(workspace.id, 'transactions'),
@@ -72,7 +71,6 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
       <div className="flex-1 px-10 py-6 overflow-auto space-y-8">
         <ExplorerTabs
           data={data}
-          documents={documents}
           bills={bills}
           batchPayments={batchPayments}
           workspaceId={workspace.id}
