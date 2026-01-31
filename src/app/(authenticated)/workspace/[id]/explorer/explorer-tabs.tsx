@@ -47,7 +47,9 @@ import { VendorDetailView } from './vendor-detail-view'
 import { CategoryDetailView } from './category-detail-view'
 import { DocumentDetailView } from '../docs/document-detail-view'
 import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
-import type { ExplorerData, WorkspaceDocument } from './actions'
+import { buildRelationColumns } from '@/components/ui/relation-column-utils'
+import type { ExplorerData, ExplorerTransaction, WorkspaceDocument } from './actions'
+import type { RelationColumnRecord, RelationLinksMap } from './relation-actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
 import type { SerializedBill, SerializedBatchPayment } from '../bills/actions'
@@ -318,6 +320,8 @@ interface ExplorerTabsProps {
   bills: SerializedBill[]
   batchPayments: SerializedBatchPayment[]
   workspaceId: string
+  relationColumns: RelationColumnRecord[]
+  relationLinksMap: Record<string, RelationLinksMap>
 }
 
 export function ExplorerTabs(props: ExplorerTabsProps) {
@@ -328,7 +332,7 @@ export function ExplorerTabs(props: ExplorerTabsProps) {
   )
 }
 
-function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId }: ExplorerTabsProps) {
+function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId, relationColumns, relationLinksMap }: ExplorerTabsProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -534,6 +538,30 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
     [handleCategoryClick]
   )
 
+  const handleRelationEntityClick = useCallback((targetTable: string, entityId: string) => {
+    switch (targetTable) {
+      case 'vendors':
+        handleVendorClick(entityId)
+        break
+      case 'categories':
+        handleCategoryClick(entityId)
+        break
+      case 'documents':
+        handleDocumentClick(entityId)
+        break
+    }
+  }, [handleVendorClick, handleCategoryClick, handleDocumentClick])
+
+  const dynamicRelationColumns = useMemo(
+    () => buildRelationColumns<ExplorerTransaction>(relationColumns, relationLinksMap, workspaceId, handleRelationEntityClick),
+    [relationColumns, relationLinksMap, workspaceId, handleRelationEntityClick]
+  )
+
+  const mergedTxColumns = useMemo(
+    () => [...txColumns, ...dynamicRelationColumns],
+    [txColumns, dynamicRelationColumns]
+  )
+
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
       <TabsList variant="line">
@@ -559,7 +587,7 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
 
       <TabsContent value="transactions">
         <PaginatedTable
-          columns={txColumns}
+          columns={mergedTxColumns}
           data={filteredTransactions}
           emptyMessage="No transactions found."
           globalFilter={searchQuery}

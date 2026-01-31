@@ -5,6 +5,8 @@ import { Building2, Table2 } from 'lucide-react'
 import { org } from '@/lib/config'
 import { getExplorerData, getWorkspaceDocuments } from './actions'
 import { getBills, getBatchPayments } from '../bills/actions'
+import { getRelationColumns, getRelationLinks } from './relation-actions'
+import type { RelationLinksMap } from './relation-actions'
 import { ExplorerTabs } from './explorer-tabs'
 
 interface ExplorerPageProps {
@@ -23,12 +25,25 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
     notFound()
   }
 
-  const [data, documents, bills, batchPayments] = await Promise.all([
+  const [data, documents, bills, batchPayments, relationColumns] = await Promise.all([
     getExplorerData(workspace.id),
     getWorkspaceDocuments(workspace.id),
     getBills(workspace.id),
     getBatchPayments(workspace.id),
+    getRelationColumns(workspace.id, 'transactions'),
   ])
+
+  // Batch-fetch relation links for all transaction IDs per relation column
+  const transactionIds = data.transactions.map((t) => t.id)
+  const relationLinksMap: Record<string, RelationLinksMap> = {}
+  if (relationColumns.length > 0 && transactionIds.length > 0) {
+    const linkResults = await Promise.all(
+      relationColumns.map((col) => getRelationLinks(col.id, transactionIds))
+    )
+    for (let i = 0; i < relationColumns.length; i++) {
+      relationLinksMap[relationColumns[i].id] = linkResults[i]
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -55,7 +70,15 @@ export default async function ExplorerPage({ params }: ExplorerPageProps) {
         ]}
       />
       <div className="flex-1 px-10 py-6 overflow-auto space-y-8">
-        <ExplorerTabs data={data} documents={documents} bills={bills} batchPayments={batchPayments} workspaceId={workspace.id} />
+        <ExplorerTabs
+          data={data}
+          documents={documents}
+          bills={bills}
+          batchPayments={batchPayments}
+          workspaceId={workspace.id}
+          relationColumns={relationColumns}
+          relationLinksMap={relationLinksMap}
+        />
       </div>
     </div>
   )
