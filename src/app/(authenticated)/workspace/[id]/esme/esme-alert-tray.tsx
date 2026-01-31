@@ -1,14 +1,20 @@
 'use client'
 
+import { useTransition } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   AlertTriangle,
   MessageCircleQuestion,
   RefreshCw,
   TrendingUp,
   Bell,
+  X,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { formatRelativeTime } from './canvas-block'
+import { dismissAlert } from '../alerts/actions'
+import { SnoozePopover } from '../alerts/snooze-popover'
 import type { SerializedAlert } from './types'
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -20,9 +26,10 @@ const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface EsmeAlertTrayProps {
   alerts: SerializedAlert[]
+  workspaceId: string
 }
 
-export function EsmeAlertTray({ alerts }: EsmeAlertTrayProps) {
+export function EsmeAlertTray({ alerts, workspaceId }: EsmeAlertTrayProps) {
   const requiresAction = alerts.filter((a) => a.priority === 'requires_action')
   const fyi = alerts.filter((a) => a.priority === 'fyi')
   const totalCount = alerts.length
@@ -45,7 +52,7 @@ export function EsmeAlertTray({ alerts }: EsmeAlertTrayProps) {
           </p>
           <div className="space-y-2">
             {requiresAction.map((alert) => (
-              <AlertTrayCard key={alert.id} alert={alert} />
+              <AlertTrayCard key={alert.id} alert={alert} workspaceId={workspaceId} />
             ))}
           </div>
         </div>
@@ -57,7 +64,7 @@ export function EsmeAlertTray({ alerts }: EsmeAlertTrayProps) {
           </p>
           <div className="space-y-2">
             {fyi.map((alert) => (
-              <AlertTrayCard key={alert.id} alert={alert} />
+              <AlertTrayCard key={alert.id} alert={alert} workspaceId={workspaceId} />
             ))}
           </div>
         </div>
@@ -66,12 +73,24 @@ export function EsmeAlertTray({ alerts }: EsmeAlertTrayProps) {
   )
 }
 
-function AlertTrayCard({ alert }: { alert: SerializedAlert }) {
+function AlertTrayCard({ alert, workspaceId }: { alert: SerializedAlert; workspaceId: string }) {
   const Icon = typeIcons[alert.type] ?? Bell
   const isRequiresAction = alert.priority === 'requires_action'
+  const [isPending, startTransition] = useTransition()
+
+  function handleDismiss() {
+    startTransition(async () => {
+      const result = await dismissAlert(alert.id, workspaceId)
+      if (result.success) {
+        toast.success('Alert dismissed')
+      } else {
+        toast.error(result.error ?? 'Failed to dismiss alert')
+      }
+    })
+  }
 
   return (
-    <div className="p-3 rounded-lg border text-sm">
+    <div className="group p-3 rounded-lg border text-sm relative">
       <div className="flex items-center gap-2 mb-1">
         <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <Badge
@@ -85,6 +104,21 @@ function AlertTrayCard({ alert }: { alert: SerializedAlert }) {
         </span>
       </div>
       <p className="font-medium line-clamp-2">{alert.title}</p>
+
+      {/* Hover action buttons */}
+      <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleDismiss}
+          disabled={isPending}
+          title="Dismiss alert"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+        <SnoozePopover alertId={alert.id} workspaceId={workspaceId} />
+      </div>
     </div>
   )
 }

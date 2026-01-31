@@ -39,6 +39,7 @@ export async function dismissAlert(
     })
 
     revalidatePath(`/workspace/${workspaceId}/alerts`)
+    revalidatePath(`/workspace/${workspaceId}/esme`)
     return { success: true }
   } catch (error) {
     console.error('Failed to dismiss alert:', error)
@@ -73,6 +74,7 @@ export async function snoozeAlert(
     })
 
     revalidatePath(`/workspace/${workspaceId}/alerts`)
+    revalidatePath(`/workspace/${workspaceId}/esme`)
     return { success: true }
   } catch (error) {
     console.error('Failed to snooze alert:', error)

@@ -160,7 +160,7 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }
             </Button>
           </div>
         </div>
-        <EsmeAlertTray alerts={alerts} />
+        <EsmeAlertTray alerts={alerts} workspaceId={workspaceId} />
       </div>
 
       {/* Floating expand button when tray is collapsed */}
