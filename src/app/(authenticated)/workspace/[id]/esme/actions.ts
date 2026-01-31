@@ -243,3 +243,78 @@ export async function sendEsmeMessage(
     return { success: false, error: 'Failed to send message' }
   }
 }
+
+const DROP_RESPONSES = [
+  "Let me look into this alert for you...",
+  "I'll review this and get back to you shortly.",
+  "Got it — pulling up the details on this one.",
+  "Looking into this now. I'll have more info soon.",
+  "On it — let me check what's going on here.",
+]
+
+function pickDropResponse(): string {
+  return DROP_RESPONSES[Math.floor(Math.random() * DROP_RESPONSES.length)]
+}
+
+export async function dropAlertToCanvas(
+  workspaceId: string,
+  alertId: string
+): Promise<SendMessageResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // Check for duplicate — alert already on canvas
+    const existing = await prisma.esmeMessage.findFirst({
+      where: {
+        workspaceId,
+        metadata: { contains: `"alertId":"${alertId}"` },
+      },
+    })
+
+    if (existing) {
+      return { success: false, error: 'This alert is already on the canvas' }
+    }
+
+    // Verify alert exists
+    const alert = await prisma.alert.findUnique({
+      where: { id: alertId },
+      select: { id: true, title: true },
+    })
+
+    if (!alert) {
+      return { success: false, error: 'Alert not found' }
+    }
+
+    // Create alert block message
+    await prisma.esmeMessage.create({
+      data: {
+        workspaceId,
+        role: 'esme',
+        content: `Alert: ${alert.title}`,
+        metadata: JSON.stringify({
+          blockType: 'alert' as const,
+          alertId,
+        }),
+      },
+    })
+
+    // Create canned text response acknowledging the alert
+    await prisma.esmeMessage.create({
+      data: {
+        workspaceId,
+        role: 'esme',
+        content: pickDropResponse(),
+        metadata: JSON.stringify({ blockType: 'text' as const }),
+      },
+    })
+
+    revalidatePath(`/workspace/${workspaceId}/esme`)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to drop alert to canvas:', error)
+    return { success: false, error: 'Failed to add alert to canvas' }
+  }
+}

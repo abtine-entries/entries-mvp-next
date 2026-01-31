@@ -1,6 +1,8 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useDraggable, type DraggableSyntheticListeners } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +12,7 @@ import {
   TrendingUp,
   Bell,
   X,
+  GripVertical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatRelativeTime } from './canvas-block'
@@ -52,7 +55,7 @@ export function EsmeAlertTray({ alerts, workspaceId }: EsmeAlertTrayProps) {
           </p>
           <div className="space-y-2">
             {requiresAction.map((alert) => (
-              <AlertTrayCard key={alert.id} alert={alert} workspaceId={workspaceId} />
+              <DraggableAlertTrayCard key={alert.id} alert={alert} workspaceId={workspaceId} />
             ))}
           </div>
         </div>
@@ -64,7 +67,7 @@ export function EsmeAlertTray({ alerts, workspaceId }: EsmeAlertTrayProps) {
           </p>
           <div className="space-y-2">
             {fyi.map((alert) => (
-              <AlertTrayCard key={alert.id} alert={alert} workspaceId={workspaceId} />
+              <DraggableAlertTrayCard key={alert.id} alert={alert} workspaceId={workspaceId} />
             ))}
           </div>
         </div>
@@ -73,7 +76,48 @@ export function EsmeAlertTray({ alerts, workspaceId }: EsmeAlertTrayProps) {
   )
 }
 
-function AlertTrayCard({ alert, workspaceId }: { alert: SerializedAlert; workspaceId: string }) {
+function DraggableAlertTrayCard({ alert, workspaceId }: { alert: SerializedAlert; workspaceId: string }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `alert-${alert.id}`,
+    data: { alert },
+  })
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+      }
+    : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'opacity-40' : ''}
+    >
+      <AlertTrayCard
+        alert={alert}
+        workspaceId={workspaceId}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+      />
+    </div>
+  )
+}
+
+/** Presentational card used both in the tray and as the DragOverlay */
+export function AlertTrayCard({
+  alert,
+  workspaceId,
+  dragAttributes,
+  dragListeners,
+  isOverlay,
+}: {
+  alert: SerializedAlert
+  workspaceId: string
+  dragAttributes?: React.HTMLAttributes<HTMLElement>
+  dragListeners?: DraggableSyntheticListeners
+  isOverlay?: boolean
+}) {
   const Icon = typeIcons[alert.type] ?? Bell
   const isRequiresAction = alert.priority === 'requires_action'
   const [isPending, startTransition] = useTransition()
@@ -90,8 +134,16 @@ function AlertTrayCard({ alert, workspaceId }: { alert: SerializedAlert; workspa
   }
 
   return (
-    <div className="group p-3 rounded-lg border text-sm relative">
+    <div className={`group p-3 rounded-lg border text-sm relative ${isOverlay ? 'bg-background shadow-lg opacity-80' : ''}`}>
       <div className="flex items-center gap-2 mb-1">
+        {/* Drag handle */}
+        <span
+          className="cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground"
+          {...(dragAttributes ?? {})}
+          {...(dragListeners ?? {})}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
         <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <Badge
           variant={isRequiresAction ? 'warning' : 'secondary'}
@@ -105,20 +157,22 @@ function AlertTrayCard({ alert, workspaceId }: { alert: SerializedAlert; workspa
       </div>
       <p className="font-medium line-clamp-2">{alert.title}</p>
 
-      {/* Hover action buttons */}
-      <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={handleDismiss}
-          disabled={isPending}
-          title="Dismiss alert"
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
-        <SnoozePopover alertId={alert.id} workspaceId={workspaceId} />
-      </div>
+      {/* Hover action buttons — hide during overlay */}
+      {!isOverlay && (
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleDismiss}
+            disabled={isPending}
+            title="Dismiss alert"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+          <SnoozePopover alertId={alert.id} workspaceId={workspaceId} />
+        </div>
+      )}
     </div>
   )
 }
