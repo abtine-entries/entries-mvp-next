@@ -95,6 +95,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
         responseType: a.responseType,
         responseOptions: a.responseOptions,
         responseValue: a.responseValue,
+        createdAt: a.createdAt.toISOString(),
       }
     }
   }
@@ -204,6 +205,39 @@ export default async function EsmePage({ params }: EsmePageProps) {
     }
   })
 
+  // Fetch ALL active alerts for the alert tray (includes snoozed with expired snoozedUntil)
+  const now = new Date()
+  const activeAlerts = await prisma.alert.findMany({
+    where: {
+      workspaceId: id,
+      OR: [
+        { status: 'active' },
+        { status: 'snoozed', snoozedUntil: { lt: now } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const serializedAlerts: SerializedAlert[] = activeAlerts.map((a) => ({
+    id: a.id,
+    type: a.type,
+    priority: a.priority,
+    status: a.status,
+    title: a.title,
+    body: a.body,
+    responseType: a.responseType,
+    responseOptions: a.responseOptions,
+    responseValue: a.responseValue,
+    createdAt: a.createdAt.toISOString(),
+  }))
+
+  // Sort: requires_action first, then fyi
+  serializedAlerts.sort((a, b) => {
+    if (a.priority === 'requires_action' && b.priority !== 'requires_action') return -1
+    if (a.priority !== 'requires_action' && b.priority === 'requires_action') return 1
+    return 0
+  })
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -213,7 +247,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
           { label: 'Esme', icon: <Sparkles className="h-4 w-4" /> },
         ]}
       />
-      <EsmeCanvas workspaceId={workspace.id} workspaceName={workspace.name} initialBlocks={blocks} />
+      <EsmeCanvas workspaceId={workspace.id} workspaceName={workspace.name} initialBlocks={blocks} alerts={serializedAlerts} />
     </div>
   )
 }

@@ -8,6 +8,7 @@ export interface SerializedAlert {
   responseType: string | null
   responseOptions: string | null
   responseValue: string | null
+  createdAt: string
 }
 
 export interface TextBlock {

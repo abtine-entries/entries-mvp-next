@@ -1,20 +1,23 @@
 'use client'
 
 import { useRef, useEffect, useState, useTransition } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { sendEsmeMessage } from './actions'
 import { CanvasBlock } from './canvas-block'
-import type { CanvasBlock as CanvasBlockType } from './types'
+import { EsmeAlertTray } from './esme-alert-tray'
+import type { CanvasBlock as CanvasBlockType, SerializedAlert } from './types'
 
 interface EsmeCanvasProps {
   workspaceId: string
   workspaceName: string
   initialBlocks: CanvasBlockType[]
+  alerts: SerializedAlert[]
 }
 
-export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks }: EsmeCanvasProps) {
+export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks, alerts }: EsmeCanvasProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
@@ -110,14 +113,17 @@ export function EsmeCanvas({ workspaceId, workspaceName, initialBlocks }: EsmeCa
         </div>
       </div>
 
-      {/* Right panel — alert tray placeholder */}
+      {/* Right panel — alert tray */}
       <div className="w-80 border-l border-border flex flex-col">
-        <div className="px-4 py-3 border-b border-border">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-semibold">Alerts</h3>
+          {alerts.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {alerts.length}
+            </Badge>
+          )}
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Alert tray coming soon</p>
-        </div>
+        <EsmeAlertTray alerts={alerts} />
       </div>
     </div>
   )
