@@ -56,7 +56,8 @@ function SortableHeader({ label, column }: { label: string; column: { toggleSort
 // --- Transaction columns ---
 export function getTransactionColumns(
   documents: WorkspaceDocument[],
-  workspaceId: string
+  workspaceId: string,
+  onSourceClick?: (sourceKey: string) => void
 ): ColumnDef<ExplorerTransaction>[] {
   return [
     {
@@ -122,7 +123,19 @@ export function getTransactionColumns(
       size: 100,
       cell: ({ row }) => {
         const source = row.getValue<string>('source')
-        return (
+        return onSourceClick ? (
+          <button
+            className="cursor-pointer hover:underline"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSourceClick(source)
+            }}
+          >
+            <Badge variant="outline" className="text-xs capitalize pointer-events-none">
+              {source === 'qbo' ? 'QBO' : source}
+            </Badge>
+          </button>
+        ) : (
           <Badge variant="outline" className="text-xs capitalize">
             {source === 'qbo' ? 'QBO' : source}
           </Badge>

@@ -139,3 +139,44 @@ export async function getVendorRecentTransactions(vendorId: string) {
 }
 
 export type VendorRecentTransaction = Awaited<ReturnType<typeof getVendorRecentTransactions>>[number]
+
+export async function getSourceDetail(workspaceId: string, sourceKey: string) {
+  const transactions = await prisma.transaction.findMany({
+    where: { workspaceId, source: sourceKey },
+    orderBy: { date: 'desc' },
+    include: {
+      category: { select: { name: true } },
+    },
+  })
+
+  const totalCount = transactions.length
+  const totalVolume = transactions.reduce(
+    (sum, t) => sum + Math.abs(t.amount.toNumber()),
+    0
+  )
+
+  const dates = transactions.map((t) => t.date.getTime())
+  const firstDate = dates.length > 0 ? new Date(Math.min(...dates)).toISOString() : null
+  const lastDate = dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : null
+
+  const recentTransactions = transactions.slice(0, 20).map((t) => ({
+    id: t.id,
+    date: t.date.toISOString(),
+    description: t.description,
+    amount: t.amount.toNumber(),
+    categoryName: t.category?.name ?? null,
+  }))
+
+  return {
+    sourceKey,
+    sourceName: sourceKey === 'qbo' ? 'QuickBooks Online' : sourceKey === 'bank' ? 'Bank' : sourceKey,
+    totalCount,
+    totalVolume,
+    firstDate,
+    lastDate,
+    recentTransactions,
+  }
+}
+
+export type SourceDetail = Awaited<ReturnType<typeof getSourceDetail>>
+export type SourceRecentTransaction = SourceDetail['recentTransactions'][number]

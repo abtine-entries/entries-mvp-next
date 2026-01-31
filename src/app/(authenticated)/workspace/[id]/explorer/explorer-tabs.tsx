@@ -41,6 +41,8 @@ import {
   eventColumns,
 } from './columns'
 import { RowDetailSidebar, type DetailItem } from './row-detail-sidebar'
+import { EntityDetailSidebar } from '@/components/ui/entity-detail-sidebar'
+import { SourceDetailView } from './source-detail-view'
 import type { ExplorerData, WorkspaceDocument } from './actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -339,6 +341,8 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sidebarItem, setSidebarItem] = useState<DetailItem | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sourceKey, setSourceKey] = useState<string | null>(null)
+  const [sourceSidebarOpen, setSourceSidebarOpen] = useState(false)
 
   // URL update helper
   const updateParams = useCallback(
@@ -479,9 +483,14 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
     [filteredTransactions.length, filteredVendors.length, data.categories.length, filteredEvents.length, bills.length]
   )
 
+  const handleSourceClick = useCallback((key: string) => {
+    setSourceKey(key)
+    setSourceSidebarOpen(true)
+  }, [])
+
   const txColumns = useMemo(
-    () => getTransactionColumns(documents, workspaceId),
-    [documents, workspaceId]
+    () => getTransactionColumns(documents, workspaceId, handleSourceClick),
+    [documents, workspaceId, handleSourceClick]
   )
 
   return (
@@ -598,6 +607,18 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
         open={sidebarOpen}
         onOpenChange={setSidebarOpen}
       />
+
+      <EntityDetailSidebar
+        open={sourceSidebarOpen}
+        onOpenChange={setSourceSidebarOpen}
+        entityType="source"
+        entityId={sourceKey ?? ''}
+        workspaceId={workspaceId}
+      >
+        {sourceKey && (
+          <SourceDetailView sourceKey={sourceKey} workspaceId={workspaceId} />
+        )}
+      </EntityDetailSidebar>
     </Tabs>
   )
 }
