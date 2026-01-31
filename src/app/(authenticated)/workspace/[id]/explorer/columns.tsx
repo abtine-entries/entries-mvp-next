@@ -160,13 +160,30 @@ export function getTransactionColumns(
 }
 
 // --- Vendor columns ---
-export const vendorColumns: ColumnDef<ExplorerVendor>[] = [
+export function getVendorColumns(
+  onVendorClick?: (vendorId: string) => void
+): ColumnDef<ExplorerVendor>[] {
+  return [
   {
     accessorKey: 'name',
     header: ({ column }) => <SortableHeader label="Name" column={column} />,
-    cell: ({ row }) => (
-      <span className="text-sm font-medium">{row.getValue('name')}</span>
-    ),
+    cell: ({ row }) => {
+      const name = row.getValue<string>('name')
+      const vendorId = row.original.id
+      return onVendorClick ? (
+        <button
+          className="cursor-pointer hover:underline text-sm font-medium"
+          onClick={(e) => {
+            e.stopPropagation()
+            onVendorClick(vendorId)
+          }}
+        >
+          {name}
+        </button>
+      ) : (
+        <span className="text-sm font-medium">{name}</span>
+      )
+    },
   },
   {
     accessorKey: 'totalSpend',
@@ -222,7 +239,8 @@ export const vendorColumns: ColumnDef<ExplorerVendor>[] = [
       return new Date(a.original.lastSeen).getTime() - new Date(b.original.lastSeen).getTime()
     },
   },
-]
+  ]
+}
 
 // --- Category columns ---
 export const categoryColumns: ColumnDef<ExplorerCategory>[] = [

@@ -180,3 +180,69 @@ export async function getSourceDetail(workspaceId: string, sourceKey: string) {
 
 export type SourceDetail = Awaited<ReturnType<typeof getSourceDetail>>
 export type SourceRecentTransaction = SourceDetail['recentTransactions'][number]
+
+export async function getVendorDetail(workspaceId: string, vendorId: string) {
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, workspaceId },
+  })
+
+  if (!vendor) return null
+
+  const recentTransactions = await prisma.transaction.findMany({
+    where: { vendorId, workspaceId },
+    orderBy: { date: 'desc' },
+    take: 10,
+    include: {
+      category: { select: { name: true } },
+    },
+  })
+
+  // Monthly spend for last 6 months
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  sixMonthsAgo.setDate(1)
+  sixMonthsAgo.setHours(0, 0, 0, 0)
+
+  const monthlyTransactions = await prisma.transaction.findMany({
+    where: {
+      vendorId,
+      workspaceId,
+      date: { gte: sixMonthsAgo },
+    },
+    select: { date: true, amount: true },
+    orderBy: { date: 'asc' },
+  })
+
+  const monthlySpendMap = new Map<string, number>()
+  for (const t of monthlyTransactions) {
+    const key = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`
+    const current = monthlySpendMap.get(key) ?? 0
+    monthlySpendMap.set(key, current + Math.abs(t.amount.toNumber()))
+  }
+
+  const monthlySpend = Array.from(monthlySpendMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, amount]) => ({ month, amount }))
+
+  return {
+    id: vendor.id,
+    name: vendor.name,
+    normalizedName: vendor.normalizedName,
+    totalSpend: vendor.totalSpend.toNumber(),
+    transactionCount: vendor.transactionCount,
+    firstSeen: vendor.firstSeen.toISOString(),
+    lastSeen: vendor.lastSeen.toISOString(),
+    recentTransactions: recentTransactions.map((t) => ({
+      id: t.id,
+      date: t.date.toISOString(),
+      description: t.description,
+      amount: t.amount.toNumber(),
+      categoryName: t.category?.name ?? null,
+    })),
+    monthlySpend,
+  }
+}
+
+export type VendorDetail = NonNullable<Awaited<ReturnType<typeof getVendorDetail>>>
+export type VendorDetailTransaction = VendorDetail['recentTransactions'][number]
+export type VendorMonthlySpend = VendorDetail['monthlySpend'][number]

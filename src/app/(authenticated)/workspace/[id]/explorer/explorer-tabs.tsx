@@ -36,13 +36,14 @@ import {
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react'
 import {
   getTransactionColumns,
-  vendorColumns,
+  getVendorColumns,
   categoryColumns,
   eventColumns,
 } from './columns'
 import { RowDetailSidebar, type DetailItem } from './row-detail-sidebar'
 import { EntityDetailSidebar } from '@/components/ui/entity-detail-sidebar'
 import { SourceDetailView } from './source-detail-view'
+import { VendorDetailView } from './vendor-detail-view'
 import type { ExplorerData, WorkspaceDocument } from './actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -343,6 +344,8 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sourceKey, setSourceKey] = useState<string | null>(null)
   const [sourceSidebarOpen, setSourceSidebarOpen] = useState(false)
+  const [vendorSidebarId, setVendorSidebarId] = useState<string | null>(null)
+  const [vendorSidebarOpen, setVendorSidebarOpen] = useState(false)
 
   // URL update helper
   const updateParams = useCallback(
@@ -488,9 +491,19 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
     setSourceSidebarOpen(true)
   }, [])
 
+  const handleVendorClick = useCallback((vendorId: string) => {
+    setVendorSidebarId(vendorId)
+    setVendorSidebarOpen(true)
+  }, [])
+
   const txColumns = useMemo(
     () => getTransactionColumns(documents, workspaceId, handleSourceClick),
     [documents, workspaceId, handleSourceClick]
+  )
+
+  const vndrColumns = useMemo(
+    () => getVendorColumns(handleVendorClick),
+    [handleVendorClick]
   )
 
   return (
@@ -536,7 +549,7 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
 
       <TabsContent value="vendors">
         <PaginatedTable
-          columns={vendorColumns}
+          columns={vndrColumns}
           data={filteredVendors}
           emptyMessage="No vendors found."
           globalFilter={searchQuery}
@@ -617,6 +630,18 @@ function ExplorerTabsInner({ data, documents, bills, batchPayments, workspaceId 
       >
         {sourceKey && (
           <SourceDetailView sourceKey={sourceKey} workspaceId={workspaceId} />
+        )}
+      </EntityDetailSidebar>
+
+      <EntityDetailSidebar
+        open={vendorSidebarOpen}
+        onOpenChange={setVendorSidebarOpen}
+        entityType="vendor"
+        entityId={vendorSidebarId ?? ''}
+        workspaceId={workspaceId}
+      >
+        {vendorSidebarId && (
+          <VendorDetailView vendorId={vendorSidebarId} workspaceId={workspaceId} />
         )}
       </EntityDetailSidebar>
     </Tabs>
