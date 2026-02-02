@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Building2 } from 'lucide-react'
 import { EsmeAvatar } from '@/components/esme-avatar'
-import { EsmeCanvas } from './esme-canvas'
+import { EsmePageShell } from './esme-page-shell'
 import { org } from '@/lib/config'
 import type {
   CanvasBlock,
@@ -211,7 +211,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
   })
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <PageHeader
         breadcrumbs={[
           { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
@@ -219,7 +219,12 @@ export default async function EsmePage({ params }: EsmePageProps) {
           { label: 'Esme', icon: <EsmeAvatar className="h-4 w-4" /> },
         ]}
       />
-      <EsmeCanvas workspaceId={workspace.id} workspaceName={workspace.name} initialBlocks={blocks} alerts={serializedAlerts} />
+      <EsmePageShell
+        workspaceId={workspace.id}
+        workspaceName={workspace.name}
+        initialBlocks={blocks}
+        alerts={serializedAlerts}
+      />
     </div>
   )
 }
