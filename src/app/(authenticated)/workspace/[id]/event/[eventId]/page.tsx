@@ -64,7 +64,7 @@ function getSourceLabel(source: string): string {
 interface EntitySource {
   /** Raw key for logo rendering, e.g. "chase", "quickbooks", "entries" */
   key: string
-  /** Human-readable label, e.g. "Chase", "QuickBooks", "Entries AI" */
+  /** Human-readable label, e.g. "Chase", "QuickBooks", "Esme" */
   label: string
 }
 
@@ -81,11 +81,11 @@ async function fetchEntitySource(entityType: string, entityId: string): Promise<
       return { key: keyMap[txn.source] ?? txn.source, label: getSourceLabel(txn.source) }
     }
     case 'match':
-      return { key: 'entries', label: 'Entries AI' }
+      return { key: 'entries', label: 'Esme' }
     case 'anomaly':
-      return { key: 'entries', label: 'Entries AI' }
+      return { key: 'entries', label: 'Esme' }
     case 'rule':
-      return { key: 'entries', label: 'Entries AI' }
+      return { key: 'entries', label: 'Esme' }
     default:
       return null
   }
@@ -144,7 +144,7 @@ async function fetchEntityDetails(entityType: string, entityId: string): Promise
       if (!rule) return []
       return [
         { label: 'Rule Text', value: rule.ruleText },
-        { label: 'Category', value: rule.category.name },
+        { label: 'Category', value: rule.category?.name ?? '—' },
         { label: 'Active', value: rule.isActive ? 'Yes' : 'No', badge: { variant: rule.isActive ? 'success' : 'outline' } },
         { label: 'Match Count', value: String(rule.matchCount) },
       ]
@@ -260,12 +260,12 @@ export default async function EventPage({ params }: EventPageProps) {
       <PageHeader
         breadcrumbs={[
           { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
-          { label: event.workspace.name, href: `/workspace/${workspaceId}/event-feed`, icon: <Building2 className="h-4 w-4" /> },
-          { label: 'Event Feed', href: `/workspace/${workspaceId}/event-feed`, icon: <Activity className="h-4 w-4" /> },
+          { label: event.workspace.name, href: `/workspace/${workspaceId}/esme`, icon: <Building2 className="h-4 w-4" /> },
+          { label: 'Event Feed', href: `/workspace/${workspaceId}/esme`, icon: <Activity className="h-4 w-4" /> },
           { label: event.title },
         ]}
       />
-      <div className="flex-1 p-6 overflow-auto">
+      <div className="flex-1 px-10 py-6 overflow-auto">
         <div className="max-w-4xl space-y-6">
           {/* Header */}
           <div>
@@ -292,7 +292,7 @@ export default async function EventPage({ params }: EventPageProps) {
               id: note.id,
               content: note.content,
               authorType: note.authorType,
-              authorName: note.authorType === 'ai' ? 'Entries AI' : (note.author?.name ?? 'Unknown'),
+              authorName: note.authorType === 'ai' ? 'Esme' : (note.author?.name ?? 'Unknown'),
               createdAt: note.createdAt.toISOString(),
             }))}
           />

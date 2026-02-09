@@ -5,6 +5,7 @@ import * as SwitchPrimitive from "@radix-ui/react-switch"
 
 import { cn } from "@/lib/utils"
 
+// Custom: size variants for Entries
 function Switch({
   className,
   size = "default",

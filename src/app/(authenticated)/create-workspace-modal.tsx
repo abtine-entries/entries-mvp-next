@@ -17,10 +17,18 @@ import { createWorkspace } from './actions'
 
 interface CreateWorkspaceModalProps {
   trigger?: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function CreateWorkspaceModal({ trigger }: CreateWorkspaceModalProps) {
-  const [open, setOpen] = useState(false)
+export function CreateWorkspaceModal({
+  trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: CreateWorkspaceModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = controlledOnOpenChange ?? setInternalOpen
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -57,11 +65,15 @@ export function CreateWorkspaceModal({ trigger }: CreateWorkspaceModalProps) {
     }
   }
 
+  const isControlled = controlledOpen !== undefined
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || <Button>Add Client</Button>}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || <Button>Add Client</Button>}
+        </DialogTrigger>
+      )}
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>

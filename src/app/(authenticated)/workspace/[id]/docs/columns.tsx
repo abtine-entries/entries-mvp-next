@@ -2,62 +2,114 @@
 
 import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Link2, Check, Clock, AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  FileText,
+  FileSpreadsheet,
+  ImageIcon,
+  Check,
+  Clock,
+  Upload,
+  AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+} from 'lucide-react'
 import { DocRowActions } from './doc-row-actions'
+import type { SerializedDocument } from './actions'
 
-export type DocItem = {
-  id: string
-  name: string
-  type: string
-  uploadedAt: Date
-  size: string
-  status: string
-  matchedEvent: string | null
+// --- Sortable header (matches explorer pattern) ---
+function SortableHeader({ column, children }: { column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: () => void }; children: React.ReactNode }) {
+  const sorted = column.getIsSorted()
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-ml-3 h-8 data-[state=open]:bg-accent"
+      onClick={() => column.toggleSorting()}
+    >
+      {children}
+      {sorted === 'asc' ? (
+        <ArrowUp className="ml-1 h-3.5 w-3.5" />
+      ) : sorted === 'desc' ? (
+        <ArrowDown className="ml-1 h-3.5 w-3.5" />
+      ) : (
+        <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50" />
+      )}
+    </Button>
+  )
 }
 
-function getDocTypeLabel(type: string) {
-  switch (type) {
-    case 'bank_statement':
-      return 'Bank Statement'
-    case 'receipt':
-      return 'Receipt'
-    case 'invoice':
-      return 'Invoice'
+function getFileIcon(fileType: string) {
+  switch (fileType) {
+    case 'csv':
+      return <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+    case 'image':
+      return <ImageIcon className="h-5 w-5 text-muted-foreground" />
     default:
-      return 'Document'
+      return <FileText className="h-5 w-5 text-muted-foreground" />
   }
+}
+
+function getFileTypeLabel(fileType: string) {
+  switch (fileType) {
+    case 'pdf':
+      return 'PDF'
+    case 'csv':
+      return 'CSV'
+    case 'image':
+      return 'Image'
+    default:
+      return 'File'
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function getStatusBadge(status: string) {
   switch (status) {
-    case 'matched':
+    case 'parsed':
       return (
         <Badge
           variant="outline"
           className="bg-green-500/20 text-green-400 border-green-500/30"
         >
           <Check className="h-3 w-3 mr-1" />
-          Matched
+          Parsed
         </Badge>
       )
-    case 'pending':
+    case 'parsing':
+      return (
+        <Badge
+          variant="outline"
+          className="bg-blue-500/20 text-blue-400 border-blue-500/30"
+        >
+          <Clock className="h-3 w-3 mr-1" />
+          Parsing
+        </Badge>
+      )
+    case 'uploaded':
       return (
         <Badge
           variant="outline"
           className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
         >
-          <Clock className="h-3 w-3 mr-1" />
-          Pending Match
+          <Upload className="h-3 w-3 mr-1" />
+          Uploaded
         </Badge>
       )
-    case 'unprocessed':
+    case 'error':
       return (
         <Badge
           variant="outline"
-          className="bg-gray-500/20 text-gray-400 border-gray-500/30"
+          className="bg-red-500/20 text-red-400 border-red-500/30"
         >
           <AlertTriangle className="h-3 w-3 mr-1" />
-          Unprocessed
+          Error
         </Badge>
       )
     default:
@@ -65,8 +117,8 @@ function getStatusBadge(status: string) {
   }
 }
 
-function formatDate(date: Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr)
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -74,52 +126,96 @@ function formatDate(date: Date): string {
   })
 }
 
-export const columns: ColumnDef<DocItem>[] = [
+export function getDocColumns(
+  onDocumentClick?: (documentId: string) => void
+): ColumnDef<SerializedDocument>[] {
+  return [
   {
-    accessorKey: 'name',
-    header: 'Document',
-    cell: ({ row }) => (
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
-          <FileText className="h-5 w-5 text-muted-foreground" />
+    accessorKey: 'fileName',
+    header: ({ column }) => <SortableHeader column={column}>File Name</SortableHeader>,
+    cell: ({ row }) => {
+      const docId = row.original.id
+      return onDocumentClick ? (
+        <button
+          className="flex items-center gap-3 min-w-0 cursor-pointer hover:underline"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDocumentClick(docId)
+          }}
+        >
+          <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
+            {getFileIcon(row.original.fileType)}
+          </div>
+          <div className="min-w-0 text-left">
+            <p className="text-sm font-medium truncate">{row.original.fileName}</p>
+            {row.original.folder && (
+              <p className="text-xs text-muted-foreground">{row.original.folder}</p>
+            )}
+          </div>
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center">
+            {getFileIcon(row.original.fileType)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{row.original.fileName}</p>
+            {row.original.folder && (
+              <p className="text-xs text-muted-foreground">{row.original.folder}</p>
+            )}
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{row.original.name}</p>
-          {row.original.matchedEvent && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Link2 className="h-3 w-3" />
-              {row.original.matchedEvent}
-            </p>
-          )}
-        </div>
-      </div>
-    ),
+      )
+    },
   },
   {
-    accessorKey: 'type',
-    header: 'Type',
-    size: 120,
+    accessorKey: 'fileType',
+    header: ({ column }) => <SortableHeader column={column}>Type</SortableHeader>,
+    size: 80,
     cell: ({ row }) => (
       <Badge variant="outline" className="text-xs">
-        {getDocTypeLabel(row.getValue('type'))}
+        {getFileTypeLabel(row.original.fileType)}
       </Badge>
     ),
   },
   {
-    accessorKey: 'uploadedAt',
-    header: 'Uploaded',
-    size: 120,
+    accessorKey: 'fileSize',
+    header: ({ column }) => <SortableHeader column={column}>Size</SortableHeader>,
+    size: 80,
     cell: ({ row }) => (
       <div className="text-sm text-muted-foreground">
-        {formatDate(row.getValue('uploadedAt'))}
+        {formatFileSize(row.original.fileSize)}
       </div>
     ),
   },
   {
     accessorKey: 'status',
-    header: 'Status',
-    size: 140,
-    cell: ({ row }) => getStatusBadge(row.getValue('status')),
+    header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
+    size: 120,
+    cell: ({ row }) => getStatusBadge(row.original.status),
+  },
+  {
+    accessorKey: 'uploadedByName',
+    header: ({ column }) => <SortableHeader column={column}>Uploaded By</SortableHeader>,
+    size: 120,
+    cell: ({ row }) => (
+      <div className="text-sm text-muted-foreground">
+        {row.original.uploadedByName ?? 'Unknown'}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'createdAt',
+    header: ({ column }) => <SortableHeader column={column}>Date</SortableHeader>,
+    size: 120,
+    sortingFn: (rowA, rowB) => {
+      return new Date(rowA.original.createdAt).getTime() - new Date(rowB.original.createdAt).getTime()
+    },
+    cell: ({ row }) => (
+      <div className="text-sm text-muted-foreground">
+        {formatDate(row.original.createdAt)}
+      </div>
+    ),
   },
   {
     id: 'actions',
@@ -130,4 +226,5 @@ export const columns: ColumnDef<DocItem>[] = [
       </div>
     ),
   },
-]
+  ]
+}

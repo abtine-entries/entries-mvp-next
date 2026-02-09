@@ -10,8 +10,7 @@ import {
   Activity,
   Plug,
   FileText,
-  Sparkles,
-  GitCompare,
+  Table2,
   Tags,
   BookOpen,
   ChevronDown,
@@ -22,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react'
+import { EsmeAvatar } from '@/components/esme-avatar'
 import { cn } from '@/lib/utils'
 import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
@@ -92,13 +92,13 @@ export function Sidebar({
         { label: 'Event Feed', href: `/workspace/${workspaceId}/event-feed`, icon: Activity },
         { label: 'Data Connectors', href: `/workspace/${workspaceId}/connectors`, icon: Plug },
         { label: 'Docs', href: `/workspace/${workspaceId}/docs`, icon: FileText },
+        { label: 'Data Explorer', href: `/workspace/${workspaceId}/explorer`, icon: Table2 },
       ],
     },
     {
       title: 'Productivity',
       items: [
-        { label: 'Entries AI', href: `/workspace/${workspaceId}/ai`, icon: Sparkles },
-        { label: 'Reconcile', href: `/workspace/${workspaceId}/reconcile`, icon: GitCompare },
+        { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: EsmeAvatar },
         { label: 'Categorize', href: `/workspace/${workspaceId}/categorize`, icon: Tags },
       ],
     },
@@ -216,7 +216,7 @@ export function Sidebar({
                 filteredWorkspaces.map((ws) => (
                   <Link
                     key={ws.id}
-                    href={`/workspace/${ws.id}/event-feed`}
+                    href={`/workspace/${ws.id}/esme`}
                     onClick={() => {
                       setWorkspaceSwitcherOpen(false)
                       setSearchQuery('')

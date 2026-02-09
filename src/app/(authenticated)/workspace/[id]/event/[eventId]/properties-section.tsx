@@ -35,6 +35,7 @@ interface PropertiesSectionProps {
   eventId: string
   definitions: PropertyDefinition[]
   properties: PropertyValue[]
+  flat?: boolean
 }
 
 export function PropertiesSection({
@@ -42,6 +43,7 @@ export function PropertiesSection({
   eventId,
   definitions,
   properties,
+  flat,
 }: PropertiesSectionProps) {
   const [localValues, setLocalValues] = useState<Record<string, string>>(() => {
     const map: Record<string, string> = {}
@@ -53,6 +55,53 @@ export function PropertiesSection({
   const [schemaModalOpen, setSchemaModalOpen] = useState(false)
 
   const sortedDefinitions = [...definitions].sort((a, b) => a.position - b.position)
+
+  const content = sortedDefinitions.length === 0 ? (
+    <p className="text-sm text-muted-foreground">No properties defined.</p>
+  ) : (
+    <div className="space-y-4">
+      {sortedDefinitions.map((def) => (
+        <PropertyRow
+          key={def.id}
+          definition={def}
+          value={localValues[def.id] ?? ''}
+          workspaceId={workspaceId}
+          eventId={eventId}
+          onValueChange={(val) =>
+            setLocalValues((prev) => ({ ...prev, [def.id]: val }))
+          }
+        />
+      ))}
+    </div>
+  )
+
+  if (flat) {
+    return (
+      <div className="pt-4 mt-4 border-t border-border">
+        <PropertySchemaModal
+          open={schemaModalOpen}
+          onOpenChange={setSchemaModalOpen}
+          workspaceId={workspaceId}
+          definitions={definitions}
+        />
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Properties
+          </h4>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setSchemaModalOpen(true)}
+          >
+            <Settings className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {content}
+      </div>
+    )
+  }
 
   return (
     <Card>
@@ -78,24 +127,7 @@ export function PropertiesSection({
         definitions={definitions}
       />
       <CardContent>
-        {sortedDefinitions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No properties defined.</p>
-        ) : (
-          <div className="space-y-4">
-            {sortedDefinitions.map((def) => (
-              <PropertyRow
-                key={def.id}
-                definition={def}
-                value={localValues[def.id] ?? ''}
-                workspaceId={workspaceId}
-                eventId={eventId}
-                onValueChange={(val) =>
-                  setLocalValues((prev) => ({ ...prev, [def.id]: val }))
-                }
-              />
-            ))}
-          </div>
-        )}
+        {content}
       </CardContent>
     </Card>
   )

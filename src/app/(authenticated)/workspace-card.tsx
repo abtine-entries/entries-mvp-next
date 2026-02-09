@@ -37,7 +37,7 @@ export function WorkspaceCard({
   workspace: WorkspaceWithCounts
 }) {
   return (
-    <Link href={`/workspace/${workspace.id}/event-feed`} className="block">
+    <Link href={`/workspace/${workspace.id}/esme`} className="block">
       <Card className="transition-colors hover:border-primary hover:bg-muted/50 cursor-pointer">
         <CardHeader>
           <CardTitle>{workspace.name}</CardTitle>

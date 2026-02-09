@@ -10,7 +10,11 @@ export type WorkspaceWithCounts = {
   name: string
   lastSyncAt: Date | null
   pendingCount: number
+  newEventCount: number
   connectors: ConnectorType[]
+  requiresActionCount: number
+  fyiCount: number
+  qboStatus: string
 }
 
 export type RecentActivityEvent = {
@@ -42,6 +46,23 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
         where: { status: 'pending' },
         select: { id: true },
       },
+      events: {
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        },
+        select: { id: true },
+      },
+      alerts: {
+        where: {
+          OR: [
+            { status: 'active' },
+            { status: 'snoozed', snoozedUntil: { lte: new Date() } },
+          ],
+        },
+        select: { id: true, priority: true },
+      },
     },
   })
 
@@ -50,12 +71,23 @@ export async function getWorkspaces(): Promise<WorkspaceWithCounts[]> {
     // For now, use mock data based on workspace name until we add the schema field
     const connectors = getWorkspaceConnectors(workspace.name)
 
+    const requiresActionCount = workspace.alerts.filter(
+      (a) => a.priority === 'requires_action'
+    ).length
+    const fyiCount = workspace.alerts.filter(
+      (a) => a.priority !== 'requires_action'
+    ).length
+
     return {
       id: workspace.id,
       name: workspace.name,
       lastSyncAt: workspace.lastSyncAt,
       pendingCount: workspace.transactions.length,
+      newEventCount: workspace.events.length,
       connectors,
+      requiresActionCount,
+      fyiCount,
+      qboStatus: workspace.qboStatus,
     }
   })
 }
@@ -208,6 +240,100 @@ export async function getRecentActivity(): Promise<RecentActivityEvent[]> {
   }
 
   return sorted
+}
+
+export type AlertSummaryWorkspace = {
+  workspaceId: string
+  workspaceName: string
+  requiresActionCount: number
+  fyiCount: number
+  alerts: {
+    id: string
+    title: string
+    type: string
+    priority: string
+  }[]
+}
+
+export async function getGlobalAlertsSummary(): Promise<AlertSummaryWorkspace[]> {
+  const session = await auth()
+
+  if (!session?.user?.id) {
+    return []
+  }
+
+  const workspaces = await prisma.workspace.findMany({
+    where: { userId: session.user.id },
+    select: { id: true, name: true },
+  })
+
+  const workspaceIds = workspaces.map((w) => w.id)
+
+  if (workspaceIds.length === 0) {
+    return []
+  }
+
+  const now = new Date()
+
+  const activeAlerts = await prisma.alert.findMany({
+    where: {
+      workspaceId: { in: workspaceIds },
+      OR: [
+        { status: 'active' },
+        { status: 'snoozed', snoozedUntil: { lte: now } },
+      ],
+    },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      priority: true,
+      workspaceId: true,
+    },
+    orderBy: [
+      { priority: 'asc' },
+      { createdAt: 'desc' },
+    ],
+    take: 50,
+  })
+
+  const workspaceMap = new Map(workspaces.map((w) => [w.id, w.name]))
+
+  // Group alerts by workspace
+  const grouped = new Map<string, AlertSummaryWorkspace>()
+
+  for (const alert of activeAlerts) {
+    let entry = grouped.get(alert.workspaceId)
+    if (!entry) {
+      entry = {
+        workspaceId: alert.workspaceId,
+        workspaceName: workspaceMap.get(alert.workspaceId) || 'Unknown',
+        requiresActionCount: 0,
+        fyiCount: 0,
+        alerts: [],
+      }
+      grouped.set(alert.workspaceId, entry)
+    }
+
+    if (alert.priority === 'requires_action') {
+      entry.requiresActionCount++
+    } else {
+      entry.fyiCount++
+    }
+
+    entry.alerts.push({
+      id: alert.id,
+      title: alert.title,
+      type: alert.type,
+      priority: alert.priority,
+    })
+  }
+
+  // Sort workspaces by total alert count descending
+  return Array.from(grouped.values()).sort(
+    (a, b) =>
+      b.requiresActionCount + b.fyiCount - (a.requiresActionCount + a.fyiCount)
+  )
 }
 
 export type CreateWorkspaceResult = {

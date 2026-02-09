@@ -47,6 +47,7 @@ function DialogOverlay({
   )
 }
 
+// Custom: showCloseButton prop for Entries
 function DialogContent({
   className,
   children,
@@ -91,6 +92,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Custom: showCloseButton prop for Entries
 function DialogFooter({
   className,
   showCloseButton = false,

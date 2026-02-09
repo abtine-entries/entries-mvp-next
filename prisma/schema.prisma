@@ -18,19 +18,23 @@ model User {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  workspaces   Workspace[]
-  auditLogs    AuditLog[]
-  eventNotes   EventNote[]
+  workspaces     Workspace[]
+  auditLogs      AuditLog[]
+  eventNotes     EventNote[]
+  resolvedAlerts Alert[]     @relation("AlertResolvedBy")
+  assignedAlerts Alert[]     @relation("AlertAssignedTo")
+  documents      Document[]
 }
 
 model Workspace {
-  id         String    @id @default(cuid())
-  name       String
-  userId     String
-  qboStatus  String    @default("connected")
-  lastSyncAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  userId        String
+  qboStatus     String    @default("connected")
+  autonomyLevel String    @default("balanced") // 'conservative', 'balanced', 'autonomous'
+  lastSyncAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user         User          @relation(fields: [userId], references: [id])
   categories   Category[]
@@ -41,6 +45,14 @@ model Workspace {
   auditLogs              AuditLog[]
   events                 Event[]
   propertyDefinitions    EventPropertyDefinition[]
+  alerts                 Alert[]
+  vendors                Vendor[]
+  documents              Document[]
+  esmeMessages           EsmeMessage[]
+  esmeConfidences        EsmeConfidence[]
+  bills                  Bill[]
+  batchPayments          BatchPayment[]
+  relationColumns        RelationColumn[]
 }
 
 model Category {
@@ -67,6 +79,8 @@ model Transaction {
   description String
   amount      Decimal
   categoryId  String?
+  vendorId    String?
+  documentId  String?
   status      String    @default("unmatched") // unmatched, matched, pending
   confidence  Float?
   aiReasoning String?
@@ -75,6 +89,8 @@ model Transaction {
 
   workspace        Workspace @relation(fields: [workspaceId], references: [id])
   category         Category? @relation(fields: [categoryId], references: [id])
+  vendor           Vendor?   @relation(fields: [vendorId], references: [id])
+  document         Document? @relation(fields: [documentId], references: [id])
   bankMatches      Match[]   @relation("BankTransaction")
   qboMatches       Match[]   @relation("QboTransaction")
   anomalies        Anomaly[]
@@ -102,14 +118,14 @@ model Rule {
   workspaceId     String
   ruleText        String
   parsedCondition String   // JSON stored as string (SQLite doesn't have native JSON type)
-  categoryId      String
+  categoryId      String?
   isActive        Boolean  @default(true)
   matchCount      Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
-  category        Category  @relation(fields: [categoryId], references: [id])
+  category        Category? @relation(fields: [categoryId], references: [id])
 }
 
 model Anomaly {
@@ -193,4 +209,167 @@ model EventNote {
 
   event      Event    @relation(fields: [eventId], references: [id])
   author     User?    @relation(fields: [authorId], references: [id])
+}
+
+model Alert {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  type            String    // 'anomaly' | 'ai_question' | 'system' | 'insight'
+  priority        String    // 'requires_action' | 'fyi'
+  status          String    @default("active") // 'active' | 'snoozed' | 'resolved'
+  title           String
+  body            String
+  entityType      String?   // nullable
+  entityId        String?   // nullable
+  responseType    String?   // nullable, 'confirm' | 'select' | 'text' | 'none'
+  responseOptions String?   // nullable, JSON string for select options
+  responseValue   String?   // nullable
+  resolvedAt      DateTime? // nullable
+  resolvedById    String?   // nullable
+  snoozedUntil    DateTime? // nullable
+  assignedToId    String?   // nullable
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id])
+  resolvedBy User?     @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
+  assignedTo User?     @relation("AlertAssignedTo", fields: [assignedToId], references: [id])
+}
+
+model Vendor {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  name             String
+  normalizedName   String
+  totalSpend       Decimal  @default(0)
+  transactionCount Int      @default(0)
+  firstSeen        DateTime
+  lastSeen         DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  transactions Transaction[]
+
+  @@unique([workspaceId, normalizedName])
+}
+
+model Document {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  fileName      String
+  fileType      String    // 'pdf', 'csv', 'image', etc.
+  fileSize      Int       // bytes
+  storagePath   String
+  folder        String?
+  parsedContent String?
+  status        String    @default("uploaded") // 'uploaded', 'parsing', 'parsed', 'error'
+  uploadedById  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id])
+  transactions Transaction[]
+}
+
+model EsmeMessage {
+  id          String   @id @default(cuid())
+  workspaceId String
+  role        String   // 'esme' or 'user'
+  content     String
+  metadata    String?  // nullable JSON string for structured data like action cards, alert references
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model EsmeConfidence {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  patternType     String    // 'category', 'vendor', 'rule'
+  patternKey      String    // category name, vendor name, or rule ID
+  tier            Int       @default(1) // 1=suggest, 2=act+notify, 3=act silently
+  confirmCount    Int       @default(0)
+  correctionCount Int       @default(0)
+  lastConfirmedAt DateTime?
+  lastCorrectedAt DateTime?
+  isLocked        Boolean   @default(false) // accountant manually locked to current tier
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, patternType, patternKey])
+}
+
+model Bill {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  vendorName    String
+  invoiceNumber String
+  dueDate       DateTime
+  amount        Decimal
+  currency      String   @default("USD")
+  status        String   @default("authorized") // 'authorized' | 'pending' | 'paid' | 'overdue'
+  xeroId        String
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id])
+  batchPaymentItems BatchPaymentItem[]
+}
+
+model BatchPayment {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  status          String   @default("draft") // 'draft' | 'submitted' | 'processing' | 'completed' | 'failed'
+  totalAmount     Decimal
+  currency        String   @default("USD")
+  wiseTransferId  String?
+  fileExportPath  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id])
+  items     BatchPaymentItem[]
+}
+
+model BatchPaymentItem {
+  id             String  @id @default(cuid())
+  batchPaymentId String
+  billId         String
+  amount         Decimal
+  currency       String  @default("USD")
+  recipientName  String
+
+  batchPayment BatchPayment @relation(fields: [batchPaymentId], references: [id])
+  bill         Bill         @relation(fields: [billId], references: [id])
+}
+
+model RelationColumn {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  name            String
+  sourceTable     String
+  targetTable     String
+  inverseColumnId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  relationLinks RelationLink[]
+}
+
+model RelationLink {
+  id               String   @id @default(cuid())
+  relationColumnId String
+  sourceRecordId   String
+  targetRecordId   String
+  createdAt        DateTime @default(now())
+
+  relationColumn RelationColumn @relation(fields: [relationColumnId], references: [id], onDelete: Cascade)
+
+  @@unique([relationColumnId, sourceRecordId, targetRecordId])
 }

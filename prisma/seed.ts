@@ -37,6 +37,8 @@ const vendorsByCategory: Record<string, string[]> = {
   'Professional Services': ['Smith & Associates CPA', 'Legal Counsel LLC'],
   'Sales Revenue': ['Customer Payment', 'Stripe Payment'],
   'Service Revenue': ['Consulting Fee', 'Client Retainer'],
+  'Accounts Receivable': ['Client Invoice', 'Pending Collection'],
+  'Accounts Payable': ['Vendor Invoice', 'Supplier Payment'],
 }
 
 // Generate a random date within the last 3 months
@@ -60,14 +62,27 @@ function generateExternalId(source: string, index: number): string {
 async function main() {
   console.log('🌱 Starting seed...')
 
-  // Clean up existing data
+  // Clean up existing data (order matters for foreign key constraints)
+  await prisma.relationLink.deleteMany()
+  await prisma.relationColumn.deleteMany()
+  await prisma.batchPaymentItem.deleteMany()
+  await prisma.batchPayment.deleteMany()
+  await prisma.bill.deleteMany()
+  await prisma.esmeConfidence.deleteMany()
+  await prisma.esmeMessage.deleteMany()
+  await prisma.alert.deleteMany()
+  await prisma.eventNote.deleteMany()
+  await prisma.eventProperty.deleteMany()
   await prisma.event.deleteMany()
   await prisma.auditLog.deleteMany()
   await prisma.anomaly.deleteMany()
   await prisma.match.deleteMany()
   await prisma.rule.deleteMany()
   await prisma.transaction.deleteMany()
+  await prisma.vendor.deleteMany()
   await prisma.category.deleteMany()
+  await prisma.eventPropertyDefinition.deleteMany()
+  await prisma.document.deleteMany()
   await prisma.workspace.deleteMany()
   await prisma.user.deleteMany()
 
@@ -127,6 +142,42 @@ async function main() {
 
   console.log('✅ Created 10 categories per workspace')
 
+  // Create vendors for each workspace
+  // vendorMap: workspaceId -> normalizedName -> Vendor record
+  const vendorMap: Record<string, Record<string, { id: string; name: string }>> = {
+    [workspace1.id]: {},
+    [workspace2.id]: {},
+  }
+
+  for (const ws of [workspace1, workspace2]) {
+    // Collect all unique vendor names from vendorsByCategory
+    const uniqueVendors = new Set<string>()
+    for (const names of Object.values(vendorsByCategory)) {
+      for (const name of names) {
+        uniqueVendors.add(name)
+      }
+    }
+
+    for (const vendorName of uniqueVendors) {
+      const normalizedName = vendorName.toLowerCase().trim()
+      const now = new Date()
+      const created = await prisma.vendor.create({
+        data: {
+          workspaceId: ws.id,
+          name: vendorName,
+          normalizedName,
+          totalSpend: new Decimal(0),
+          transactionCount: 0,
+          firstSeen: now,
+          lastSeen: now,
+        },
+      })
+      vendorMap[ws.id][normalizedName] = { id: created.id, name: created.name }
+    }
+  }
+
+  console.log('✅ Created vendors for each workspace')
+
   // Create transactions for each workspace
   for (const ws of [workspace1, workspace2]) {
     let txnIndex = 0
@@ -140,6 +191,8 @@ async function main() {
       // Create 5-6 transactions per category
       for (let i = 0; i < (Math.floor(Math.random() * 2) + 5); i++) {
         const vendor = vendors[Math.floor(Math.random() * vendors.length)]
+        const vendorNormalized = vendor.toLowerCase().trim()
+        const vendorRecord = vendorMap[ws.id][vendorNormalized]
         const date = randomDate()
         const amount = randomAmount(
           isIncome ? 500 : 50,
@@ -157,6 +210,7 @@ async function main() {
             description: `${vendor} - ${cat.name}`,
             amount,
             categoryId: categoryMap[ws.id][cat.name],
+            vendorId: vendorRecord?.id ?? null,
             status: 'unmatched',
           },
         })
@@ -183,6 +237,7 @@ async function main() {
             description: `${vendor}`,
             amount: qboAmount,
             categoryId: categoryMap[ws.id][cat.name],
+            vendorId: vendorRecord?.id ?? null,
             status: 'unmatched',
           },
         })
@@ -232,6 +287,171 @@ async function main() {
 
     console.log(`✅ Created 50+ transactions for ${ws.name}`)
   }
+
+  // Update vendor aggregates (totalSpend, transactionCount, firstSeen, lastSeen)
+  for (const ws of [workspace1, workspace2]) {
+    const vendors = await prisma.vendor.findMany({
+      where: { workspaceId: ws.id },
+    })
+
+    for (const vendor of vendors) {
+      const transactions = await prisma.transaction.findMany({
+        where: { vendorId: vendor.id },
+        orderBy: { date: 'asc' },
+      })
+
+      if (transactions.length > 0) {
+        // Sum absolute amounts for totalSpend
+        const totalSpend = transactions.reduce(
+          (sum, txn) => sum.plus(txn.amount.abs()),
+          new Decimal(0)
+        )
+        const firstSeen = transactions[0].date
+        const lastSeen = transactions[transactions.length - 1].date
+
+        await prisma.vendor.update({
+          where: { id: vendor.id },
+          data: {
+            totalSpend,
+            transactionCount: transactions.length,
+            firstSeen,
+            lastSeen,
+          },
+        })
+      }
+    }
+
+    console.log(`✅ Updated vendor aggregates for ${ws.name}`)
+  }
+
+  // Create sample rules for each workspace
+  // ruleText = concise AI-generated summary shown in the table
+  // parsedCondition = structured data + the original accountant prompt
+  const rulesData = [
+    {
+      ruleText: 'Auto-categorize payroll processors',
+      parsedCondition: JSON.stringify({ prompt: 'Anything from Gusto, ADP, or Paychex is always Payroll. No need to ask me about these.', action: 'categorize', vendors: ['gusto', 'adp', 'paychex'], confidence: 'always' }),
+      categoryName: 'Payroll',
+      isActive: true,
+      matchCount: 24,
+    },
+    {
+      ruleText: 'Office supply vendors to Office Supplies',
+      parsedCondition: JSON.stringify({ prompt: 'Staples and Office Depot purchases go under Office Supplies.', action: 'categorize', vendors: ['staples', 'office depot'] }),
+      categoryName: 'Office Supplies',
+      isActive: true,
+      matchCount: 15,
+    },
+    {
+      ruleText: 'Recurring utilities — auto-handle',
+      parsedCondition: JSON.stringify({ prompt: 'PG&E, AT&T, and Comcast are Utilities. These are recurring and predictable — handle them automatically.', action: 'categorize', vendors: ['pg&e', 'at&t', 'comcast'], confidence: 'always' }),
+      categoryName: 'Utilities',
+      isActive: true,
+      matchCount: 18,
+    },
+    {
+      ruleText: 'Bank service fees to Bank Fees',
+      parsedCondition: JSON.stringify({ prompt: 'Monthly charges from Chase, BofA, or Wells Fargo that look like service fees should be categorized as Bank Fees.', action: 'categorize', vendors: ['chase bank', 'bank of america', 'wells fargo'], description_hint: 'service fee' }),
+      categoryName: 'Bank Fees',
+      isActive: true,
+      matchCount: 12,
+    },
+    {
+      ruleText: 'XYZ Property Management → Rent',
+      parsedCondition: JSON.stringify({ prompt: 'XYZ Property Management is our landlord. Categorize their charges as Rent — it\'s the same amount every month.', action: 'categorize', vendors: ['xyz property management'] }),
+      categoryName: 'Rent',
+      isActive: true,
+      matchCount: 6,
+    },
+    {
+      ruleText: 'Flag transactions over $5,000',
+      parsedCondition: JSON.stringify({ prompt: 'If any single transaction is over $5,000, flag it for my review before doing anything. I want to see those personally.', action: 'notify', condition: 'amount_exceeds', threshold: 5000, priority: 'requires_action' }),
+      categoryName: 'Professional Services',
+      isActive: true,
+      matchCount: 3,
+    },
+    {
+      ruleText: 'New vendors → daily brief',
+      parsedCondition: JSON.stringify({ prompt: 'When you see a new vendor we haven\'t worked with before, add it to my daily brief so I\'m aware. No action needed — just keep me in the loop.', action: 'daily_brief', trigger: 'new_vendor' }),
+      categoryName: 'Office Supplies',
+      isActive: true,
+      matchCount: 7,
+    },
+    {
+      ruleText: 'Detect same-week duplicate charges',
+      parsedCondition: JSON.stringify({ prompt: 'If Acme gets charged by a vendor twice in the same week for the same amount, that\'s probably a duplicate. Flag it immediately.', action: 'alert', trigger: 'duplicate_detection', window: '7d', match: 'same_vendor_same_amount' }),
+      categoryName: 'Bank Fees',
+      isActive: true,
+      matchCount: 2,
+    },
+    {
+      ruleText: 'Stripe payouts → Sales Revenue + link invoices',
+      parsedCondition: JSON.stringify({ prompt: 'Stripe payouts are Sales Revenue. Link each payout to the matching invoice if you can find one.', action: 'categorize_and_link', vendors: ['stripe'], link_to: 'invoice' }),
+      categoryName: 'Sales Revenue',
+      isActive: true,
+      matchCount: 11,
+    },
+    {
+      ruleText: 'Outside counsel — alert on 20%+ increase',
+      parsedCondition: JSON.stringify({ prompt: 'Smith & Associates is our outside counsel. Anything from them is Professional Services. If their monthly bill goes up by more than 20%, let me know.', action: 'categorize_and_monitor', vendors: ['smith & associates', 'legal counsel'], alert_on: 'increase_pct', threshold: 20 }),
+      categoryName: 'Professional Services',
+      isActive: true,
+      matchCount: 8,
+    },
+    {
+      ruleText: 'Amazon: auto under $200, ask above',
+      parsedCondition: JSON.stringify({ prompt: 'Amazon purchases under $200 are usually Office Supplies. Over $200, ask me — those might be equipment or something else.', action: 'categorize_conditional', vendors: ['amazon'], amount_split: 200, below: 'auto', above: 'ask' }),
+      categoryName: 'Office Supplies',
+      isActive: true,
+      matchCount: 9,
+    },
+    {
+      ruleText: 'Monday brief: unmatched txn summary',
+      parsedCondition: JSON.stringify({ prompt: 'Every Monday morning, include a summary of last week\'s unmatched transactions in the daily brief. I like to start the week knowing what\'s open.', action: 'daily_brief', schedule: 'monday', content: 'unmatched_summary' }),
+      categoryName: 'Bank Fees',
+      isActive: true,
+      matchCount: 4,
+    },
+    {
+      ruleText: 'Monitor payroll run rate (±10%)',
+      parsedCondition: JSON.stringify({ prompt: 'Keep an eye on Payroll totals. If the monthly run rate changes by more than 10%, surface it — could mean a new hire or termination we need to book.', action: 'monitor', category: 'payroll', alert_on: 'run_rate_change', threshold: 10 }),
+      categoryName: 'Payroll',
+      isActive: true,
+      matchCount: 1,
+    },
+    {
+      ruleText: 'Late retainers — note + alert after 5 days',
+      parsedCondition: JSON.stringify({ prompt: 'Client retainer payments are Service Revenue. If a retainer payment is late by more than 5 days, add a note and ping me.', action: 'categorize_and_monitor', description_hint: 'retainer', alert_on: 'late_payment', days: 5 }),
+      categoryName: 'Service Revenue',
+      isActive: true,
+      matchCount: 4,
+    },
+    {
+      ruleText: 'AWS charges — paused, pending cost centers',
+      parsedCondition: JSON.stringify({ prompt: 'We used to split AWS charges between R&D and infrastructure. Pausing this for now — just put everything under Professional Services until I sort out the new cost centers.', action: 'categorize', vendors: ['aws'], note: 'paused pending cost center rework' }),
+      categoryName: 'Professional Services',
+      isActive: false,
+      matchCount: 14,
+    },
+  ]
+
+  for (const ws of [workspace1, workspace2]) {
+    for (const rule of rulesData) {
+      await prisma.rule.create({
+        data: {
+          workspaceId: ws.id,
+          ruleText: rule.ruleText,
+          parsedCondition: rule.parsedCondition,
+          categoryId: categoryMap[ws.id][rule.categoryName],
+          isActive: rule.isActive,
+          matchCount: rule.matchCount,
+        },
+      })
+    }
+  }
+
+  const ruleCount = await prisma.rule.count()
+  console.log(`✅ Created ${ruleCount} rules across workspaces`)
 
   // Create Event records for all transactions
   for (const ws of [workspace1, workspace2]) {
@@ -314,23 +534,612 @@ async function main() {
 
   console.log('✅ Created 5 anomalies of different types')
 
+  // Create sample alerts across workspaces
+  const anomalies = await prisma.anomaly.findMany({
+    where: { workspaceId: workspace1.id },
+    take: 2,
+  })
+
+  const alertsData = [
+    // --- Workspace 1: Acme Corporation (8 alerts) ---
+    // Anomaly alerts (3)
+    {
+      workspaceId: workspace1.id,
+      type: 'anomaly',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Duplicate transaction detected: $1,500 to Acme Corp',
+      body: 'Two identical payments of $1,500.00 were made to Acme Corp within 24 hours. This may be an accidental duplicate.',
+      entityType: 'anomaly',
+      entityId: anomalies[0]?.id ?? null,
+      responseType: 'confirm',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'anomaly',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Unusual amount: $15,000 payment to new vendor',
+      body: 'A $15,000 payment was made to "GlobalTech Services", a vendor not previously seen in this workspace. The amount is 300% above the average transaction.',
+      entityType: 'anomaly',
+      entityId: anomalies[1]?.id ?? null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'anomaly',
+      priority: 'fyi',
+      status: 'resolved',
+      title: 'Timing mismatch on vendor payment',
+      body: 'Payment to Staples posted 5 days after the expected date based on historical patterns.',
+      entityType: 'transaction',
+      entityId: ws1Transactions[0]?.id ?? null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: 'dismissed',
+      resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      resolvedById: user.id,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // AI question alerts (3)
+    {
+      workspaceId: workspace1.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Confirm categorization: 12 Stripe charges as Payment Processing?',
+      body: 'I found 12 recurring charges from Stripe totaling $847.00. Should these be categorized as "Payment Processing" under Bank Fees?',
+      entityType: null,
+      entityId: null,
+      responseType: 'confirm',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Which category for recurring Adobe subscription?',
+      body: 'Monthly Adobe Creative Cloud charge of $54.99 could be classified under multiple categories. Please select the appropriate one.',
+      entityType: null,
+      entityId: null,
+      responseType: 'select',
+      responseOptions: JSON.stringify(['Software & Subscriptions', 'Office Supplies', 'Professional Services']),
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace1.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'What is the purpose of the $2,300 transfer?',
+      body: 'An internal transfer of $2,300 was detected between checking and savings accounts. Please describe the purpose for proper classification.',
+      entityType: 'transaction',
+      entityId: ws1Transactions[2]?.id ?? null,
+      responseType: 'text',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // System alert (1)
+    {
+      workspaceId: workspace1.id,
+      type: 'system',
+      priority: 'fyi',
+      status: 'active',
+      title: 'QuickBooks sync completed: 47 new transactions',
+      body: 'Successfully synced 47 new transactions from QuickBooks Online. 12 were auto-matched, 35 require review.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // Insight alert (1)
+    {
+      workspaceId: workspace1.id,
+      type: 'insight',
+      priority: 'fyi',
+      status: 'active',
+      title: 'Client expenses up 40% vs last month',
+      body: 'Acme Corporation total expenses increased from $12,400 to $17,360 compared to last month. Largest increase in Professional Services (+$3,200) and Office Supplies (+$1,100).',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+
+    // --- Workspace 2: Tech Startup Inc (6 alerts) ---
+    // System alerts (2)
+    {
+      workspaceId: workspace2.id,
+      type: 'system',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Sync failed: QuickBooks connection error',
+      body: 'The scheduled QuickBooks sync failed due to an authentication error. Please reconnect the QuickBooks integration to resume automatic syncing.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace2.id,
+      type: 'system',
+      priority: 'fyi',
+      status: 'resolved',
+      title: 'Chase bank feed connected successfully',
+      body: 'Chase business checking account has been connected. Historical transactions from the last 90 days have been imported.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: 'dismissed',
+      resolvedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      resolvedById: user.id,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // Insight alerts (2)
+    {
+      workspaceId: workspace2.id,
+      type: 'insight',
+      priority: 'fyi',
+      status: 'active',
+      title: 'Payroll costs trending 15% above budget',
+      body: 'Tech Startup Inc payroll expenses for this quarter are tracking 15% above the projected budget. Current run rate: $48,000/month vs budgeted $41,700/month.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    {
+      workspaceId: workspace2.id,
+      type: 'insight',
+      priority: 'fyi',
+      status: 'snoozed',
+      title: 'Recurring vendor payments could be consolidated',
+      body: 'Three separate monthly payments to AWS, Google Cloud, and Azure total $2,800/month. Consider consolidating to a single cloud provider for potential savings.',
+      entityType: null,
+      entityId: null,
+      responseType: null,
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // snoozed for 1 week
+      assignedToId: null,
+    },
+    // Anomaly alert (1)
+    {
+      workspaceId: workspace2.id,
+      type: 'anomaly',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'Duplicate subscription charge: Slack',
+      body: 'Two Slack charges of $12.50/user were billed this month (Dec 1 and Dec 15). This may be a billing error from the provider.',
+      entityType: null,
+      entityId: null,
+      responseType: 'confirm',
+      responseOptions: null,
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+    // AI question alert (1)
+    {
+      workspaceId: workspace2.id,
+      type: 'ai_question',
+      priority: 'requires_action',
+      status: 'active',
+      title: 'How should contractor payments be classified?',
+      body: 'There are 8 payments totaling $24,000 to individual contractors this month. Should these be categorized as "Professional Services" or "Payroll"?',
+      entityType: null,
+      entityId: null,
+      responseType: 'select',
+      responseOptions: JSON.stringify(['Professional Services', 'Payroll', 'Contractor Payments (new category)']),
+      responseValue: null,
+      resolvedAt: null,
+      resolvedById: null,
+      snoozedUntil: null,
+      assignedToId: null,
+    },
+  ]
+
+  for (const alertData of alertsData) {
+    await prisma.alert.create({ data: alertData })
+  }
+
+  const alertCount = await prisma.alert.count()
+  console.log(`✅ Created ${alertCount} sample alerts across workspaces`)
+
+  // Create sample Esme messages for each workspace
+  for (const ws of [workspace1, workspace2]) {
+    // Fetch alerts for this workspace to reference in metadata
+    const wsAlerts = await prisma.alert.findMany({
+      where: { workspaceId: ws.id, status: 'active' },
+      take: 2,
+    })
+
+    const baseTime = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+
+    const esmeMessages = [
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Good morning! I've been reviewing ${ws.name}'s recent activity. There are a few things that need your attention today.`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime()),
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `I found a potential issue that needs your review.`,
+        metadata: wsAlerts[0] ? JSON.stringify({ alertId: wsAlerts[0].id }) : null,
+        createdAt: new Date(baseTime.getTime() + 1 * 60 * 1000), // +1 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'user',
+        content: `Thanks Esme, I'll take a look at that. Can you also check if there are any unmatched transactions from this week?`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 30 * 60 * 1000), // +30 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Of course! I found 12 unmatched bank transactions from the past 7 days. Most are small recurring charges that could be auto-categorized. Would you like me to suggest categories for them?`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 31 * 60 * 1000), // +31 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'user',
+        content: `Yes, go ahead and suggest categories. But flag anything over $500 for my review.`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 45 * 60 * 1000), // +45 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Got it! I've categorized 9 transactions under $500. Here are 3 that need your review — each is over $500.`,
+        metadata: wsAlerts[1] ? JSON.stringify({ alertId: wsAlerts[1].id }) : null,
+        createdAt: new Date(baseTime.getTime() + 46 * 60 * 1000), // +46 min
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Daily digest: ${ws.name} has 5 active alerts, 35 unmatched transactions, and the QuickBooks sync completed successfully this morning. Everything else looks good!`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 24 * 60 * 60 * 1000), // +1 day
+      },
+      {
+        workspaceId: ws.id,
+        role: 'user',
+        content: `What's the total spend on office supplies this month?`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 25 * 60 * 60 * 1000), // +25 hours
+      },
+      {
+        workspaceId: ws.id,
+        role: 'esme',
+        content: `Office supplies total for this month is $1,847.32 across 8 transactions. That's 12% higher than last month ($1,649.00). The biggest line item is a $450 Staples order from last Tuesday.`,
+        metadata: null,
+        createdAt: new Date(baseTime.getTime() + 25 * 60 * 60 * 1000 + 30 * 1000), // +25 hours 30 sec
+      },
+    ]
+
+    for (const msg of esmeMessages) {
+      await prisma.esmeMessage.create({ data: msg })
+    }
+  }
+
+  const esmeMessageCount = await prisma.esmeMessage.count()
+  console.log(`✅ Created ${esmeMessageCount} Esme messages across workspaces`)
+
+  // Create sample Document records for each workspace
+  const sampleDocuments = [
+    {
+      fileName: 'Chase Bank Statement - January 2024.pdf',
+      fileType: 'pdf',
+      fileSize: 250880, // ~245 KB
+      storagePath: '/uploads/chase-bank-statement-jan-2024.pdf',
+      folder: 'Bank Statements',
+      parsedContent: 'Chase Business Checking - Statement Period: Jan 1-31, 2024. 47 transactions totaling $24,500.',
+      status: 'parsed',
+    },
+    {
+      fileName: 'Receipt - Office Depot #12345.pdf',
+      fileType: 'pdf',
+      fileSize: 91136, // ~89 KB
+      storagePath: '/uploads/receipt-office-depot-12345.pdf',
+      folder: 'Receipts',
+      parsedContent: 'Office Depot Receipt - Order #12345 - $450.00 - Office Supplies',
+      status: 'parsed',
+    },
+    {
+      fileName: 'Invoice #1042 - Client ABC Inc.pdf',
+      fileType: 'pdf',
+      fileSize: 159744, // ~156 KB
+      storagePath: '/uploads/invoice-1042-abc-inc.pdf',
+      folder: 'Invoices',
+      parsedContent: null,
+      status: 'uploaded',
+    },
+    {
+      fileName: 'AWS Receipt - December 2023.pdf',
+      fileType: 'pdf',
+      fileSize: 114688, // ~112 KB
+      storagePath: '/uploads/aws-receipt-dec-2023.pdf',
+      folder: 'Receipts',
+      parsedContent: null,
+      status: 'parsing',
+    },
+    {
+      fileName: 'Employee W2 Scan.png',
+      fileType: 'image',
+      fileSize: 2048000, // ~2 MB
+      storagePath: '/uploads/employee-w2-scan.png',
+      folder: null,
+      parsedContent: null,
+      status: 'error',
+    },
+    {
+      fileName: 'Q4 Expense Report.csv',
+      fileType: 'csv',
+      fileSize: 45056, // ~44 KB
+      storagePath: '/uploads/q4-expense-report.csv',
+      folder: 'Reports',
+      parsedContent: 'Quarterly expense report with 128 line items.',
+      status: 'parsed',
+    },
+  ]
+
+  for (const ws of [workspace1, workspace2]) {
+    for (let i = 0; i < sampleDocuments.length; i++) {
+      const doc = sampleDocuments[i]
+      await prisma.document.create({
+        data: {
+          workspaceId: ws.id,
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          fileSize: doc.fileSize,
+          storagePath: doc.storagePath,
+          folder: doc.folder,
+          parsedContent: doc.parsedContent,
+          status: doc.status,
+          uploadedById: user.id,
+          createdAt: new Date(Date.now() - (sampleDocuments.length - i) * 24 * 60 * 60 * 1000),
+        },
+      })
+    }
+  }
+
+  const documentCount = await prisma.document.count()
+  console.log(`✅ Created ${documentCount} sample documents across workspaces`)
+
+  // Link some transactions to documents and create Statement RelationColumn + RelationLinks
+  for (const ws of [workspace1, workspace2]) {
+    const wsDocuments = await prisma.document.findMany({
+      where: { workspaceId: ws.id },
+      select: { id: true },
+    })
+    const wsTransactions = await prisma.transaction.findMany({
+      where: { workspaceId: ws.id },
+      select: { id: true },
+      take: Math.min(wsDocuments.length, 6),
+    })
+
+    // Link a subset of transactions to documents via the legacy documentId FK
+    for (let i = 0; i < Math.min(wsTransactions.length, wsDocuments.length); i++) {
+      await prisma.transaction.update({
+        where: { id: wsTransactions[i].id },
+        data: { documentId: wsDocuments[i].id },
+      })
+    }
+
+    // Create the default 'Statement' RelationColumn
+    const statementCol = await prisma.relationColumn.create({
+      data: {
+        workspaceId: ws.id,
+        name: 'Statement',
+        sourceTable: 'transactions',
+        targetTable: 'documents',
+      },
+    })
+
+    // Create RelationLinks from the documentId links
+    const linkedTxns = await prisma.transaction.findMany({
+      where: { workspaceId: ws.id, documentId: { not: null } },
+      select: { id: true, documentId: true },
+    })
+
+    for (const t of linkedTxns) {
+      await prisma.relationLink.create({
+        data: {
+          relationColumnId: statementCol.id,
+          sourceRecordId: t.id,
+          targetRecordId: t.documentId!,
+        },
+      })
+    }
+
+    console.log(`✅ Created Statement relation column with ${linkedTxns.length} links for ${ws.name}`)
+  }
+
+  // Create sample EsmeConfidence records for each workspace
+  // Realistic progression: some categories well-established (tier 2), most at tier 1
+  const confidenceRecords = [
+    // Category patterns — well-confirmed
+    { patternType: 'category', patternKey: 'Payroll', tier: 2, confirmCount: 15, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    { patternType: 'category', patternKey: 'Rent', tier: 2, confirmCount: 12, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Utilities', tier: 2, confirmCount: 10, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    // Category patterns — learning (tier 1)
+    { patternType: 'category', patternKey: 'Office Supplies', tier: 1, confirmCount: 3, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Professional Services', tier: 1, confirmCount: 5, correctionCount: 2, lastConfirmedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Bank Fees', tier: 1, confirmCount: 7, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    { patternType: 'category', patternKey: 'Sales Revenue', tier: 1, confirmCount: 4, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'category', patternKey: 'Service Revenue', tier: 1, confirmCount: 2, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    // Vendor patterns
+    { patternType: 'vendor', patternKey: 'Gusto', tier: 2, confirmCount: 14, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    { patternType: 'vendor', patternKey: 'Staples', tier: 1, confirmCount: 4, correctionCount: 1, lastConfirmedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), lastCorrectedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), isLocked: false },
+    { patternType: 'vendor', patternKey: 'Chase Bank', tier: 1, confirmCount: 6, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: false },
+    // Locked pattern — accountant wants to always be asked about legal fees
+    { patternType: 'category', patternKey: 'Accounts Payable', tier: 1, confirmCount: 3, correctionCount: 0, lastConfirmedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), lastCorrectedAt: null, isLocked: true },
+  ]
+
+  for (const ws of [workspace1, workspace2]) {
+    for (const record of confidenceRecords) {
+      await prisma.esmeConfidence.create({
+        data: {
+          workspaceId: ws.id,
+          patternType: record.patternType,
+          patternKey: record.patternKey,
+          tier: record.tier,
+          confirmCount: record.confirmCount,
+          correctionCount: record.correctionCount,
+          lastConfirmedAt: record.lastConfirmedAt,
+          lastCorrectedAt: record.lastCorrectedAt,
+          isLocked: record.isLocked,
+        },
+      })
+    }
+  }
+
+  const esmeConfidenceCount = await prisma.esmeConfidence.count()
+  console.log(`✅ Created ${esmeConfidenceCount} Esme confidence records across workspaces`)
+
+  // Create sample bills for each workspace
+  const billVendors = [
+    'Acme Corp',
+    'CloudHost Ltd',
+    'DesignWorks Studio',
+    'Legal Associates LLP',
+    'Office Supplies Co',
+    'TechStack Inc',
+  ]
+
+  // Status distribution per workspace: 5 authorized, 2 pending, 2 paid, 1 overdue
+  const billStatuses: string[] = [
+    'authorized', 'authorized', 'authorized', 'authorized', 'authorized',
+    'pending', 'pending',
+    'paid', 'paid',
+    'overdue',
+  ]
+
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
+  for (const ws of [workspace1, workspace2]) {
+    for (let i = 0; i < 10; i++) {
+      const vendor = billVendors[i % billVendors.length]
+      const status = billStatuses[i]
+      // Amounts between $500 and $15,000
+      const amount = Math.round((Math.random() * 14500 + 500) * 100) / 100
+      // Spread due dates across current month and next month
+      const dueMonth = i < 5 ? currentMonth : currentMonth + 1
+      const dueDay = Math.floor(Math.random() * 28) + 1
+      const dueDate = new Date(currentYear, dueMonth, dueDay)
+
+      const billIndex = (ws === workspace1 ? 0 : 10) + i + 1
+      const paddedIndex = billIndex.toString().padStart(3, '0')
+
+      await prisma.bill.create({
+        data: {
+          workspaceId: ws.id,
+          vendorName: vendor,
+          invoiceNumber: `INV-${paddedIndex}`,
+          dueDate,
+          amount: new Decimal(amount),
+          currency: 'USD',
+          status,
+          xeroId: `XERO-INV-${paddedIndex}`,
+          description: `${vendor} invoice for services rendered`,
+        },
+      })
+    }
+
+    console.log(`✅ Created 10 bills for ${ws.name}`)
+  }
+
   // Summary
   const userCount = await prisma.user.count()
   const workspaceCount = await prisma.workspace.count()
   const categoryCount = await prisma.category.count()
+  const vendorCount = await prisma.vendor.count()
   const transactionCount = await prisma.transaction.count()
   const matchCount = await prisma.match.count()
   const anomalyCount = await prisma.anomaly.count()
+  const finalRuleCount = await prisma.rule.count()
   const eventCount = await prisma.event.count()
+  const finalAlertCount = await prisma.alert.count()
+  const finalEsmeMessageCount = await prisma.esmeMessage.count()
+  const finalDocumentCount = await prisma.document.count()
+  const finalEsmeConfidenceCount = await prisma.esmeConfidence.count()
+  const billCount = await prisma.bill.count()
 
   console.log('\n📊 Seed Summary:')
   console.log(`   Users: ${userCount}`)
   console.log(`   Workspaces: ${workspaceCount}`)
   console.log(`   Categories: ${categoryCount}`)
+  console.log(`   Vendors: ${vendorCount}`)
   console.log(`   Transactions: ${transactionCount}`)
   console.log(`   Matches: ${matchCount}`)
   console.log(`   Anomalies: ${anomalyCount}`)
+  console.log(`   Rules: ${finalRuleCount}`)
   console.log(`   Events: ${eventCount}`)
+  console.log(`   Alerts: ${finalAlertCount}`)
+  console.log(`   Esme Messages: ${finalEsmeMessageCount}`)
+  console.log(`   Documents: ${finalDocumentCount}`)
+  console.log(`   Esme Confidence: ${finalEsmeConfidenceCount}`)
+  console.log(`   Bills: ${billCount}`)
   console.log('\n✨ Seed completed successfully!')
 }
 
