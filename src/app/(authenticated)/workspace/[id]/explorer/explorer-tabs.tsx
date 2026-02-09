@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, Suspense } from 'react'
+import { useState, useMemo, useCallback, Suspense, useTransition } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
   useReactTable,
@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   getTransactionColumns,
   getVendorColumns,
@@ -49,6 +50,7 @@ import { DocumentDetailView } from '../docs/document-detail-view'
 import { AddRelationColumnButton } from '@/components/ui/add-relation-column-button'
 import { buildRelationColumns } from '@/components/ui/relation-column-utils'
 import type { ExplorerData, ExplorerTransaction, ExplorerVendor, ExplorerCategory, ExplorerEvent } from './actions'
+import { updateTransactionCategory } from './actions'
 import type { RelationColumnRecord, RelationLinksMap } from './relation-actions'
 import { BillsTable } from '../bills/bills-table'
 import { PaymentHistory } from '../bills/payment-history'
@@ -76,6 +78,329 @@ function getDateRangeStart(range: string): Date | null {
     default:
       return null
   }
+}
+
+// --- Format helpers ---
+function formatAmount(amount: number): string {
+  const formatted = Math.abs(amount).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  })
+  return amount < 0 ? `-${formatted}` : formatted
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+// --- General Ledger Table ---
+interface GeneralLedgerRow {
+  id: string
+  date: string
+  description: string
+  categoryName: string | null
+  categoryId: string | null
+  debit: number | null
+  credit: number | null
+  balance: number
+}
+
+function buildGeneralLedgerRows(transactions: ExplorerTransaction[]): GeneralLedgerRow[] {
+  // Sort by date ascending for running balance calculation
+  const sorted = [...transactions].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  )
+
+  let runningBalance = 0
+  const rows: GeneralLedgerRow[] = []
+
+  for (const t of sorted) {
+    // Positive amounts are credits (money in), negative are debits (money out)
+    const isDebit = t.amount < 0
+    const absAmount = Math.abs(t.amount)
+
+    runningBalance += t.amount
+
+    rows.push({
+      id: t.id,
+      date: t.date,
+      description: t.description,
+      categoryName: t.categoryName,
+      categoryId: t.categoryId,
+      debit: isDebit ? absAmount : null,
+      credit: !isDebit ? absAmount : null,
+      balance: runningBalance,
+    })
+  }
+
+  // Reverse to show most recent first
+  return rows.reverse()
+}
+
+function GeneralLedgerTable({
+  transactions,
+  onCategoryClick,
+  onRowClick,
+}: {
+  transactions: ExplorerTransaction[]
+  onCategoryClick?: (categoryId: string) => void
+  onRowClick?: (transaction: ExplorerTransaction) => void
+}) {
+  const rows = useMemo(() => buildGeneralLedgerRows(transactions), [transactions])
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    let totalDebit = 0
+    let totalCredit = 0
+    for (const row of rows) {
+      if (row.debit) totalDebit += row.debit
+      if (row.credit) totalCredit += row.credit
+    }
+    return { totalDebit, totalCredit }
+  }, [rows])
+
+  return (
+    <div className="space-y-4">
+      {/* Summary stats */}
+      <div className="flex items-center gap-6 text-sm">
+        <span className="text-muted-foreground">
+          {transactions.length} entries
+        </span>
+        <span className="text-red-400">
+          Debits: {formatAmount(totals.totalDebit)}
+        </span>
+        <span className="text-green-400">
+          Credits: {formatAmount(totals.totalCredit)}
+        </span>
+        <span className={totals.totalCredit - totals.totalDebit >= 0 ? 'text-green-400' : 'text-red-400'}>
+          Net: {formatAmount(totals.totalCredit - totals.totalDebit)}
+        </span>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[100px]">Date</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead className="w-[140px]">Account</TableHead>
+            <TableHead className="text-right w-[120px]">Debit</TableHead>
+            <TableHead className="text-right w-[120px]">Credit</TableHead>
+            <TableHead className="text-right w-[130px]">Balance</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <TableRow
+                key={row.id}
+                className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}
+                onClick={() => {
+                  if (onRowClick) {
+                    const original = transactions.find((t) => t.id === row.id)
+                    if (original) onRowClick(original)
+                  }
+                }}
+              >
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                  {formatDate(row.date)}
+                </TableCell>
+                <TableCell className="text-sm truncate max-w-[250px]">
+                  {row.description}
+                </TableCell>
+                <TableCell>
+                  {row.categoryName ? (
+                    onCategoryClick && row.categoryId ? (
+                      <button
+                        className="text-sm hover:underline cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onCategoryClick(row.categoryId!)
+                        }}
+                      >
+                        {row.categoryName}
+                      </button>
+                    ) : (
+                      <span className="text-sm">{row.categoryName}</span>
+                    )
+                  ) : (
+                    <span className="text-sm text-yellow-400">Uncategorized</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right text-sm font-mono text-red-400">
+                  {row.debit ? formatAmount(row.debit) : ''}
+                </TableCell>
+                <TableCell className="text-right text-sm font-mono text-green-400">
+                  {row.credit ? formatAmount(row.credit) : ''}
+                </TableCell>
+                <TableCell className={`text-right text-sm font-mono ${row.balance >= 0 ? 'text-foreground' : 'text-red-400'}`}>
+                  {formatAmount(row.balance)}
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                No entries found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+// --- Chart of Accounts Table ---
+interface ChartOfAccountsRow {
+  id: string
+  name: string
+  type: string
+  depth: number
+  transactionCount: number
+  totalAmount: number
+  isTypeHeader?: boolean
+}
+
+function buildChartOfAccountsRows(
+  categories: ExplorerCategory[],
+  transactions: ExplorerTransaction[]
+): ChartOfAccountsRow[] {
+  // Compute totalAmount per category from transactions
+  const amountByCategory: Record<string, number> = {}
+  for (const t of transactions) {
+    if (t.categoryId) {
+      amountByCategory[t.categoryId] = (amountByCategory[t.categoryId] ?? 0) + Math.abs(t.amount)
+    }
+  }
+
+  // Group by type
+  const typeOrder = ['expense', 'income', 'asset', 'liability']
+  const typeLabels: Record<string, string> = {
+    expense: 'Expenses',
+    income: 'Income',
+    asset: 'Assets',
+    liability: 'Liabilities',
+  }
+
+  const grouped: Record<string, ExplorerCategory[]> = {}
+  for (const c of categories) {
+    if (!grouped[c.type]) grouped[c.type] = []
+    grouped[c.type].push(c)
+  }
+
+  // Sort categories within each group
+  for (const type of Object.keys(grouped)) {
+    grouped[type].sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  // Build flat rows with type headers
+  const rows: ChartOfAccountsRow[] = []
+  for (const type of typeOrder) {
+    const items = grouped[type]
+    if (!items || items.length === 0) continue
+
+    // Calculate type total
+    const typeTotal = items.reduce((sum, c) => sum + (amountByCategory[c.id] ?? 0), 0)
+
+    // Add type header row
+    rows.push({
+      id: `header-${type}`,
+      name: typeLabels[type] ?? type,
+      type,
+      depth: 0,
+      transactionCount: items.reduce((sum, c) => sum + c.transactionCount, 0),
+      totalAmount: typeTotal,
+      isTypeHeader: true,
+    })
+
+    // Add category rows
+    for (const c of items) {
+      rows.push({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        depth: 1,
+        transactionCount: c.transactionCount,
+        totalAmount: amountByCategory[c.id] ?? 0,
+      })
+    }
+  }
+
+  return rows
+}
+
+function ChartOfAccountsTable({
+  categories,
+  transactions,
+  onCategoryClick,
+}: {
+  categories: ExplorerCategory[]
+  transactions: ExplorerTransaction[]
+  onCategoryClick?: (categoryId: string) => void
+}) {
+  const rows = useMemo(
+    () => buildChartOfAccountsRows(categories, transactions),
+    [categories, transactions]
+  )
+
+  return (
+    <div className="space-y-4">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Account</TableHead>
+            <TableHead className="text-right w-[120px]">Transactions</TableHead>
+            <TableHead className="text-right w-[140px]">Total Amount</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <TableRow
+                key={row.id}
+                className={row.isTypeHeader ? 'bg-muted/50 font-semibold' : 'hover:bg-muted/30'}
+              >
+                <TableCell
+                  style={{ paddingLeft: row.isTypeHeader ? undefined : `${16 + row.depth * 20}px` }}
+                >
+                  {row.isTypeHeader ? (
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                      {row.name}
+                    </span>
+                  ) : onCategoryClick ? (
+                    <button
+                      className="text-sm hover:underline cursor-pointer text-left"
+                      onClick={() => onCategoryClick(row.id)}
+                    >
+                      {row.name}
+                    </button>
+                  ) : (
+                    <span className="text-sm">{row.name}</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right text-sm text-muted-foreground">
+                  {row.transactionCount > 0 ? row.transactionCount : '—'}
+                </TableCell>
+                <TableCell className="text-right text-sm font-mono">
+                  {row.totalAmount > 0 ? formatAmount(row.totalAmount) : '—'}
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                No accounts found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
 }
 
 // --- Generic PaginatedTable with filtering ---
@@ -363,6 +688,12 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
   const [documentSidebarId, setDocumentSidebarId] = useState<string | null>(null)
   const [documentSidebarOpen, setDocumentSidebarOpen] = useState(false)
 
+  // Optimistic category overrides
+  const [isPending, startTransition] = useTransition()
+  const [categoryOverrides, setCategoryOverrides] = useState<
+    Record<string, { categoryId: string | null; categoryName: string | null }>
+  >({})
+
   // URL update helper
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
@@ -452,9 +783,24 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
     return count
   }, [searchQuery, dateRange, source])
 
+  // Apply category overrides to transactions
+  const transactionsWithOverrides = useMemo(() => {
+    return data.transactions.map((t) => {
+      const override = categoryOverrides[t.id]
+      if (override) {
+        return {
+          ...t,
+          categoryId: override.categoryId,
+          categoryName: override.categoryName,
+        }
+      }
+      return t
+    })
+  }, [data.transactions, categoryOverrides])
+
   // Apply client-side date range filtering
   const filteredTransactions = useMemo(() => {
-    let filtered = data.transactions
+    let filtered = transactionsWithOverrides
     const rangeStart = getDateRangeStart(dateRange)
     if (rangeStart) {
       filtered = filtered.filter(
@@ -465,7 +811,7 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
       filtered = filtered.filter((t) => t.source === source)
     }
     return filtered
-  }, [data.transactions, dateRange, source])
+  }, [transactionsWithOverrides, dateRange, source])
 
   const filteredVendors = useMemo(() => {
     if (dateRange === 'all') return data.vendors
@@ -496,6 +842,8 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
         value: 'categories',
         label: `Categories (${data.categories.length})`,
       },
+      { value: 'general-ledger', label: 'General Ledger' },
+      { value: 'chart-of-accounts', label: 'Chart of Accounts' },
       { value: 'events', label: `Events (${filteredEvents.length})` },
       { value: 'bills', label: `Bills (${bills.length})` },
     ],
@@ -522,9 +870,46 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
     setDocumentSidebarOpen(true)
   }, [])
 
+  // Handle category change with optimistic update
+  const handleCategoryChange = useCallback(
+    (transactionId: string, categoryId: string | null, categoryName: string | null) => {
+      // Optimistic update
+      setCategoryOverrides((prev) => ({
+        ...prev,
+        [transactionId]: { categoryId, categoryName },
+      }))
+
+      // Call server action
+      startTransition(async () => {
+        try {
+          await updateTransactionCategory(transactionId, categoryId, workspaceId)
+          toast.success(
+            categoryName
+              ? `Category changed to "${categoryName}"`
+              : 'Category removed'
+          )
+        } catch {
+          // Revert optimistic update on error
+          setCategoryOverrides((prev) => {
+            const next = { ...prev }
+            delete next[transactionId]
+            return next
+          })
+          toast.error('Failed to update category')
+        }
+      })
+    },
+    [workspaceId, startTransition]
+  )
+
   const txColumns = useMemo(
-    () => getTransactionColumns(handleSourceClick, handleCategoryClick),
-    [handleSourceClick, handleCategoryClick]
+    () => getTransactionColumns({
+      onSourceClick: handleSourceClick,
+      onCategoryClick: handleCategoryClick,
+      categories: data.categories,
+      onCategoryChange: handleCategoryChange,
+    }),
+    [handleSourceClick, handleCategoryClick, data.categories, handleCategoryChange]
   )
 
   const vndrColumns = useMemo(
@@ -692,6 +1077,25 @@ function ExplorerTabsInner({ data, bills, batchPayments, workspaceId, relationCo
               sourceTable="categories"
             />
           }
+        />
+      </TabsContent>
+
+      <TabsContent value="general-ledger">
+        <GeneralLedgerTable
+          transactions={filteredTransactions}
+          onCategoryClick={handleCategoryClick}
+          onRowClick={(row) => {
+            setSidebarItem({ tab: 'transactions', data: row })
+            setSidebarOpen(true)
+          }}
+        />
+      </TabsContent>
+
+      <TabsContent value="chart-of-accounts">
+        <ChartOfAccountsTable
+          categories={data.categories}
+          transactions={filteredTransactions}
+          onCategoryClick={handleCategoryClick}
         />
       </TabsContent>
 

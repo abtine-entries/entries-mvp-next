@@ -9,7 +9,6 @@ import {
   Plug,
   FileText,
   Table2,
-  Tags,
   BookOpen,
   Search,
   Settings,
@@ -63,7 +62,6 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
       title: 'Productivity',
       items: [
         { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: EsmeAvatar },
-        { label: 'Categorize', href: `/workspace/${workspaceId}/categorize`, icon: Tags },
       ],
     },
     {
