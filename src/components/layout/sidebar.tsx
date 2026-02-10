@@ -103,7 +103,7 @@ export function Sidebar({
       ],
     },
     {
-      title: 'Knowledge',
+      title: 'Configuration',
       items: [
         { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
       ],

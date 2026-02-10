@@ -11,7 +11,6 @@ import {
   Table2,
   BookOpen,
   Search,
-  Settings,
 } from 'lucide-react'
 import { EsmeAvatar } from '@/components/esme-avatar'
 import {
@@ -65,15 +64,9 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
       ],
     },
     {
-      title: 'Knowledge',
-      items: [
-        { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
-      ],
-    },
-    {
       title: 'Configuration',
       items: [
-        { label: 'Settings', href: `/workspace/${workspaceId}/settings`, icon: Settings },
+        { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
       ],
     },
   ]
