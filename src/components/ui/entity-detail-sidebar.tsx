@@ -74,7 +74,7 @@ export function EntityDetailSidebar({
       <SheetContent side="right" className="w-[400px] sm:max-w-[400px] overflow-y-auto">
         <SheetHeader>
           <SheetDescription>{entityTypeLabels[entityType]}</SheetDescription>
-          <SheetTitle className="text-lg leading-snug pr-6">
+          <SheetTitle className="text-sm leading-snug pr-6">
             {entityTypeLabels[entityType]}
           </SheetTitle>
         </SheetHeader>

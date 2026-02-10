@@ -82,7 +82,7 @@ export function EventDetailDrawer({ workspaceId, eventId, open, onOpenChange }: 
           <>
             <SheetHeader>
               <SheetDescription>Event Details</SheetDescription>
-              <SheetTitle className="text-lg leading-snug pr-6">{data.event.title}</SheetTitle>
+              <SheetTitle className="text-sm leading-snug pr-6">{data.event.title}</SheetTitle>
             </SheetHeader>
 
             <div className="px-4 pb-6">

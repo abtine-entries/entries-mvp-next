@@ -1,9 +1,19 @@
 'use client'
 
+import { useMemo } from 'react'
 import { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Bot } from 'lucide-react'
 import type {
   ExplorerTransaction,
   ExplorerVendor,
@@ -51,11 +61,106 @@ function SortableHeader({ label, column }: { label: string; column: { toggleSort
   )
 }
 
-// --- Transaction columns ---
-export function getTransactionColumns(
-  onSourceClick?: (sourceKey: string) => void,
+// --- Category dropdown for inline editing ---
+function CategoryDropdown({
+  transaction,
+  categories,
+  onCategoryChange,
+  onCategoryClick,
+}: {
+  transaction: ExplorerTransaction
+  categories: ExplorerCategory[]
+  onCategoryChange: (transactionId: string, categoryId: string | null, categoryName: string | null) => void
   onCategoryClick?: (categoryId: string) => void
-): ColumnDef<ExplorerTransaction>[] {
+}) {
+  // Group categories by type
+  const grouped = useMemo(() => {
+    const groups: Record<string, ExplorerCategory[]> = {}
+    for (const c of categories) {
+      if (!groups[c.type]) groups[c.type] = []
+      groups[c.type].push(c)
+    }
+    return groups
+  }, [categories])
+
+  const typeLabels: Record<string, string> = {
+    expense: 'Expenses',
+    income: 'Income',
+    asset: 'Assets',
+    liability: 'Liabilities',
+  }
+  const typeOrder = ['expense', 'income', 'asset', 'liability']
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Select
+        value={transaction.categoryId ?? '__none__'}
+        onValueChange={(value) => {
+          const newCategoryId = value === '__none__' ? null : value
+          const newCategoryName = newCategoryId
+            ? categories.find((c) => c.id === newCategoryId)?.name ?? null
+            : null
+          onCategoryChange(transaction.id, newCategoryId, newCategoryName)
+        }}
+      >
+        <SelectTrigger
+          size="sm"
+          className={cn(
+            'h-7 min-w-[120px] max-w-[160px] text-xs',
+            !transaction.categoryId && 'text-yellow-400 border-yellow-500/30'
+          )}
+        >
+          <SelectValue placeholder="Select category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none__">
+            <span className="text-yellow-400">Uncategorized</span>
+          </SelectItem>
+          {typeOrder.map((type) => {
+            const items = grouped[type]
+            if (!items || items.length === 0) return null
+            return (
+              <SelectGroup key={type}>
+                <SelectLabel>{typeLabels[type] ?? type}</SelectLabel>
+                {items.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )
+          })}
+        </SelectContent>
+      </Select>
+      {transaction.categoryId && onCategoryClick && (
+        <button
+          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCategoryClick(transaction.categoryId!)
+          }}
+          title="View category details"
+        >
+          ↗
+        </button>
+      )}
+      {transaction.aiReasoning && (
+        <span title="AI-suggested category">
+          <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
+        </span>
+      )}
+    </div>
+  )
+}
+
+// --- Transaction columns ---
+export function getTransactionColumns(options: {
+  onSourceClick?: (sourceKey: string) => void
+  onCategoryClick?: (categoryId: string) => void
+  categories?: ExplorerCategory[]
+  onCategoryChange?: (transactionId: string, categoryId: string | null, categoryName: string | null) => void
+}): ColumnDef<ExplorerTransaction>[] {
+  const { onSourceClick, onCategoryClick, categories, onCategoryChange } = options
   return [
     {
       accessorKey: 'date',
@@ -104,8 +209,20 @@ export function getTransactionColumns(
     {
       accessorKey: 'categoryName',
       header: ({ column }) => <SortableHeader label="Category" column={column} />,
-      size: 150,
+      size: 180,
       cell: ({ row }) => {
+        // If categories and onCategoryChange are provided, show dropdown
+        if (categories && onCategoryChange) {
+          return (
+            <CategoryDropdown
+              transaction={row.original}
+              categories={categories}
+              onCategoryChange={onCategoryChange}
+              onCategoryClick={onCategoryClick}
+            />
+          )
+        }
+        // Fallback to simple text/button display
         const name = row.getValue<string | null>('categoryName')
         const categoryId = row.original.categoryId
         if (!name) {

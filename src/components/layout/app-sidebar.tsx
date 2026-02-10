@@ -8,13 +8,11 @@ import {
   Activity,
   Plug,
   FileText,
-  Sparkles,
   Table2,
-  Tags,
   BookOpen,
   Search,
-  Settings,
 } from 'lucide-react'
+import { EsmeAvatar } from '@/components/esme-avatar'
 import {
   Sidebar,
   SidebarContent,
@@ -62,20 +60,13 @@ function getWorkspaceNavSections(workspaceId: string): NavSection[] {
     {
       title: 'Productivity',
       items: [
-        { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: Sparkles },
-        { label: 'Categorize', href: `/workspace/${workspaceId}/categorize`, icon: Tags },
-      ],
-    },
-    {
-      title: 'Knowledge',
-      items: [
-        { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
+        { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: EsmeAvatar },
       ],
     },
     {
       title: 'Configuration',
       items: [
-        { label: 'Settings', href: `/workspace/${workspaceId}/settings`, icon: Settings },
+        { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
       ],
     },
   ]

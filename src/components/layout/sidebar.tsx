@@ -10,7 +10,6 @@ import {
   Activity,
   Plug,
   FileText,
-  Sparkles,
   Table2,
   Tags,
   BookOpen,
@@ -22,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react'
+import { EsmeAvatar } from '@/components/esme-avatar'
 import { cn } from '@/lib/utils'
 import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
@@ -98,12 +98,12 @@ export function Sidebar({
     {
       title: 'Productivity',
       items: [
-        { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: Sparkles },
+        { label: 'Esme', href: `/workspace/${workspaceId}/esme`, icon: EsmeAvatar },
         { label: 'Categorize', href: `/workspace/${workspaceId}/categorize`, icon: Tags },
       ],
     },
     {
-      title: 'Knowledge',
+      title: 'Configuration',
       items: [
         { label: 'Rules', href: `/workspace/${workspaceId}/rules`, icon: BookOpen },
       ],

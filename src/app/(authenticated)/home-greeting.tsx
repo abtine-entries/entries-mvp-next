@@ -1,13 +1,14 @@
 const greetings = [
-  "Let's close some books today.",
-  "Ready when you are.",
-  "I've been keeping an eye on things.",
-  "Numbers are looking good — let's dig in.",
   "Another day, another ledger.",
-  "The books won't balance themselves.",
-  "Let's make today count.",
-  "Everything's in order — where should we start?",
-  "Your clients are waiting.",
+  "All accounts present and accounted for.",
+  "Your GL missed you.",
+  "May your debits always equal your credits.",
+  "Today's forecast: 100% chance of reconciliation.",
+  "Revenue is up, coffee is hot, let's go.",
+  "The books won't balance themselves — oh wait.",
+  "Let's make today count (pun intended).",
+  "Time to make some entries.",
+  "Receipts don't file themselves yet.",
 ]
 
 export function HomeGreeting() {

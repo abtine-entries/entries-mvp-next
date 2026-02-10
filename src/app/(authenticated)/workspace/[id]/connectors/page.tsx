@@ -2,7 +2,14 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Building2,
   Check,
@@ -153,83 +160,100 @@ export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
         ]}
       />
       <div className="flex-1 px-10 py-6 overflow-auto">
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="space-y-8">
           {/* Connected Section */}
           <section>
-            <h2 className="text-sm font-semibold mb-4">Connected</h2>
-            <div className="grid gap-3">
-              {connectedApps.map((app) => {
-                const connectionStatus = getConnectionStatus(app.status)
-                const StatusIcon = connectionStatus.icon
+            <h2 className="text-sm font-medium text-muted-foreground mb-4">Connected</h2>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Connector</TableHead>
+                  <TableHead style={{ width: 120 }}>Status</TableHead>
+                  <TableHead style={{ width: 140 }}>Last Synced</TableHead>
+                  <TableHead>Data Types</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {connectedApps.map((app) => {
+                  const connectionStatus = getConnectionStatus(app.status)
+                  const StatusIcon = connectionStatus.icon
 
-                return (
-                  <Card key={app.id} className="py-4 px-5">
-                    <CardContent className="p-0">
-                      <div className="flex items-start gap-4">
-                        <ConnectorLogo connector={app.connector} size="md" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm font-medium">{app.name}</h3>
-                            <Badge variant={connectionStatus.variant} className="text-[10px] px-1.5 py-0">
-                              <StatusIcon className="h-3 w-3" />
-                              {connectionStatus.label}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            {app.lastSyncAt && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                Last synced {getRelativeTime(app.lastSyncAt)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {app.dataTypes.map((dt) => (
-                              <Badge key={dt} variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-                                {dt}
-                              </Badge>
-                            ))}
-                          </div>
+                  return (
+                    <TableRow key={app.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <ConnectorLogo connector={app.connector} size="sm" />
+                          <span className="font-medium text-sm">{app.name}</span>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={connectionStatus.variant} className="text-[10px] px-1.5 py-0">
+                          <StatusIcon className="h-3 w-3" />
+                          {connectionStatus.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {app.lastSyncAt ? (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {getRelativeTime(app.lastSyncAt)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1.5">
+                          {app.dataTypes.map((dt) => (
+                            <Badge key={dt} variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                              {dt}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </section>
 
           {/* Available Connectors Section */}
           <section>
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold">Available</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Connect additional data sources to your workspace.
-              </p>
-            </div>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-              {availableConnectors.map((connector) => (
-                <Card
-                  key={connector.id}
-                  className="py-3 px-4"
-                >
-                  <CardContent className="flex items-center gap-3 p-0">
-                    {connector.id === 'plaid' ? (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600/20 text-emerald-500 shrink-0">
-                        <Landmark className="h-5 w-5" />
+            <h2 className="text-sm font-medium text-muted-foreground mb-4">Available</h2>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Connector</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead style={{ width: 120 }} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {availableConnectors.map((connector) => (
+                  <TableRow key={connector.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        {connector.id === 'plaid' ? (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600/20 text-emerald-500 shrink-0">
+                            <Landmark className="h-3.5 w-3.5" />
+                          </div>
+                        ) : (
+                          <ConnectorLogo connector={connector.connector} size="sm" />
+                        )}
+                        <span className="font-medium text-sm">{connector.name}</span>
                       </div>
-                    ) : (
-                      <ConnectorLogo connector={connector.connector} size="md" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium">{connector.name}</h3>
-                      <p className="text-xs text-muted-foreground">{connector.description}</p>
-                    </div>
-                    <ConnectorTooltipButton comingSoon={connector.comingSoon} />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">{connector.description}</span>
+                    </TableCell>
+                    <TableCell>
+                      <ConnectorTooltipButton comingSoon={connector.comingSoon} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </section>
         </div>
       </div>

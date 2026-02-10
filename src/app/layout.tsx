@@ -26,7 +26,7 @@ export default function RootLayout({
       <body className="antialiased font-body">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           {children}
-          <Toaster />
+          <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>
     </html>

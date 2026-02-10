@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/layout'
 import { HomeGreeting } from './home-greeting'
 import { RecentActivityFeed } from './recent-activity-feed'
 import { AlertsSummary } from './alerts-summary'
-import { Home, Plus, Building2, Activity, Sparkles } from 'lucide-react'
+import { Home, Plus, Building2, Activity } from 'lucide-react'
 import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
 
@@ -41,17 +41,6 @@ export default function HomePage() {
           {/* Greeting */}
           <HomeGreeting />
 
-          {/* Esme Summary */}
-          <section>
-            <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-4">
-              <Sparkles className="h-4 w-4" />
-              Esme
-            </p>
-            <Suspense fallback={<div className="text-muted-foreground text-sm">Loading...</div>}>
-              <AlertsBriefing />
-            </Suspense>
-          </section>
-
           {/* Clients Section */}
           <section>
             <div className="flex items-center justify-between mb-4">
@@ -70,6 +59,13 @@ export default function HomePage() {
             </div>
             <Suspense fallback={<ClientTableSkeleton />}>
               <ClientList />
+            </Suspense>
+          </section>
+
+          {/* Esme Summary */}
+          <section>
+            <Suspense fallback={<div className="text-muted-foreground text-sm">Loading...</div>}>
+              <AlertsBriefing />
             </Suspense>
           </section>
 

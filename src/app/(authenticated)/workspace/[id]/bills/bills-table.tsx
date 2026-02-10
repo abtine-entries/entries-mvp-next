@@ -453,10 +453,10 @@ function BillsTableInner({ bills, workspaceId, onRowClick, relationColumns: relC
         <SheetContent side="right" className="flex flex-col">
           <SheetHeader>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#9FE870]">
-                <SiWise className="h-4 w-4 text-[#163300]" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#9FE870]">
+                <SiWise className="h-3.5 w-3.5 text-[#163300]" />
               </div>
-              <SheetTitle>Batch Payment Review</SheetTitle>
+              <SheetTitle className="text-sm">Batch Payment Review</SheetTitle>
             </div>
             <SheetDescription>
               Review selected bills before creating a batch payment.

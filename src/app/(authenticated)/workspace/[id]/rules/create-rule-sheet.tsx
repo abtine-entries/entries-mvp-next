@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Plus, ArrowUp } from 'lucide-react'
+import { EsmeAvatar } from '@/components/esme-avatar'
 import { toast } from 'sonner'
 import { createRule } from './actions'
 import { generateRuleTitle, getClarifyingQuestion } from './conversation-engine'
@@ -97,9 +98,7 @@ function MessageBubble({
   return (
     <div className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-          E
-        </div>
+        <EsmeAvatar className="h-8 w-8 shrink-0" />
       )}
       <div className={cn('max-w-[85%] space-y-1', isUser ? 'items-end' : 'items-start')}>
         <div
@@ -334,10 +333,8 @@ export function CreateRuleSheet({ workspaceId }: CreateRuleSheetProps) {
       >
         {/* Header */}
         <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
-              E
-            </div>
+          <SheetTitle className="flex items-center gap-2 text-sm">
+            <EsmeAvatar className="h-5 w-5" />
             Teach Esme a new rule
           </SheetTitle>
           <SheetDescription className="text-xs">

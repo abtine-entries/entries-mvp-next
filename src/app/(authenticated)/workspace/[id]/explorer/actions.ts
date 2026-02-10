@@ -8,7 +8,7 @@ export async function getExplorerData(workspaceId: string) {
     prisma.transaction.findMany({
       where: { workspaceId },
       include: {
-        category: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true, workspaceId: true } },
         vendor: { select: { id: true, name: true } },
         document: { select: { id: true, fileName: true } },
       },
@@ -32,24 +32,28 @@ export async function getExplorerData(workspaceId: string) {
   ])
 
   return {
-    transactions: transactions.map((t) => ({
-      id: t.id,
-      date: t.date.toISOString(),
-      description: t.description,
-      amount: t.amount.toNumber(),
-      categoryName: t.category?.name ?? null,
-      categoryId: t.categoryId,
-      vendorName: t.vendor?.name ?? null,
-      vendorId: t.vendorId,
-      documentId: t.documentId,
-      documentFileName: t.document?.fileName ?? null,
-      source: t.source,
-      status: t.status,
-      externalId: t.externalId,
-      confidence: t.confidence,
-      aiReasoning: t.aiReasoning,
-      createdAt: t.createdAt.toISOString(),
-    })),
+    transactions: transactions.map((t) => {
+      // Only use category data if it belongs to the same workspace
+      const categoryInSameWorkspace = t.category && t.category.workspaceId === workspaceId
+      return {
+        id: t.id,
+        date: t.date.toISOString(),
+        description: t.description,
+        amount: t.amount.toNumber(),
+        categoryName: categoryInSameWorkspace ? t.category.name : null,
+        categoryId: categoryInSameWorkspace ? t.categoryId : null,
+        vendorName: t.vendor?.name ?? null,
+        vendorId: t.vendorId,
+        documentId: t.documentId,
+        documentFileName: t.document?.fileName ?? null,
+        source: t.source,
+        status: t.status,
+        externalId: t.externalId,
+        confidence: t.confidence,
+        aiReasoning: t.aiReasoning,
+        createdAt: t.createdAt.toISOString(),
+      }
+    }),
     vendors: vendors.map((v) => ({
       id: v.id,
       name: v.name,
@@ -115,6 +119,19 @@ export async function unlinkTransactionDocument(
     data: { documentId: null },
   })
   revalidatePath(`/workspace/${workspaceId}/explorer`)
+}
+
+export async function updateTransactionCategory(
+  transactionId: string,
+  categoryId: string | null,
+  workspaceId: string
+) {
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { categoryId },
+  })
+  revalidatePath(`/workspace/${workspaceId}/explorer`)
+  return { success: true }
 }
 
 export async function getVendorRecentTransactions(vendorId: string) {
