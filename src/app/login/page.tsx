@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -13,12 +13,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel, FieldDescription } from '@/components/ui/field'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/'
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -39,7 +42,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Invalid email or password')
       } else {
-        router.push('/')
+        router.push(callbackUrl)
         router.refresh()
       }
     } catch {
@@ -49,6 +52,11 @@ export default function LoginPage() {
     }
   }
 
+  function handleGoogleSignIn() {
+    setIsGoogleLoading(true)
+    signIn('google', { callbackUrl })
+  }
+
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
@@ -56,17 +64,17 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <Image
               src="/entries-icon.png"
-              alt="Entries logo"
+              alt="Entries"
               width={48}
               height={48}
               className="rounded-lg"
             />
           </div>
           <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Welcome back</CardTitle>
+            <CardHeader>
+              <CardTitle>Login to your account</CardTitle>
               <CardDescription>
-                Sign in to your Entries account
+                Enter your email below to login to your account
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -78,34 +86,54 @@ export default function LoginPage() {
                       id="email"
                       name="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder="m@example.com"
                       autoComplete="email"
                       required
-                      disabled={isLoading}
+                      disabled={isLoading || isGoogleLoading}
                     />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="password">Password</FieldLabel>
+                    <div className="flex items-center">
+                      <FieldLabel htmlFor="password">Password</FieldLabel>
+                      <a
+                        href="#"
+                        className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                      >
+                        Forgot your password?
+                      </a>
+                    </div>
                     <Input
                       id="password"
                       name="password"
                       type="password"
-                      placeholder="Enter your password"
                       autoComplete="current-password"
                       required
-                      disabled={isLoading}
+                      disabled={isLoading || isGoogleLoading}
                     />
                   </Field>
                   {error && (
                     <p className="text-sm text-destructive">{error}</p>
                   )}
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Signing in...' : 'Sign in'}
-                  </Button>
+                  <Field>
+                    <Button
+                      type="submit"
+                      disabled={isLoading || isGoogleLoading}
+                    >
+                      {isLoading ? 'Logging in...' : 'Login'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      disabled={isLoading || isGoogleLoading}
+                      onClick={handleGoogleSignIn}
+                    >
+                      {isGoogleLoading ? 'Redirecting...' : 'Login with Google'}
+                    </Button>
+                    <FieldDescription className="text-center">
+                      Don&apos;t have an account?{' '}
+                      <a href="#">Sign up</a>
+                    </FieldDescription>
+                  </Field>
                 </FieldGroup>
               </form>
             </CardContent>
