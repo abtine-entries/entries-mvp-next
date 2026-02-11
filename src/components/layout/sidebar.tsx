@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -129,9 +130,14 @@ export function Sidebar({
             collapsed ? 'justify-center px-2' : 'px-3'
           )}
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold flex-shrink-0">
-            {org.initials}
-          </span>
+          <Image
+            src="/entries-icon.png"
+            alt="Entries"
+            width={28}
+            height={28}
+            className="rounded-lg flex-shrink-0"
+            unoptimized
+          />
           {!collapsed && (
             <span className="font-heading text-sm font-semibold text-sidebar-accent-foreground truncate">
               {org.name}
@@ -249,7 +255,7 @@ export function Sidebar({
             {/* Add Client Button */}
             <div className="border-t border-border p-2">
               <Link
-                href="/?create=true"
+                href="/onboarding"
                 onClick={() => setWorkspaceSwitcherOpen(false)}
                 className={cn(
                   'flex items-center gap-2 w-full px-2 py-2 rounded-md text-sm transition-colors min-h-[36px]',

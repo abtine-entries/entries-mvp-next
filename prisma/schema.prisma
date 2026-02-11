@@ -30,6 +30,7 @@ model Workspace {
   id            String    @id @default(cuid())
   name          String
   userId        String
+  platform      String?   // 'qbo' | 'xero'
   qboStatus     String    @default("connected")
   autonomyLevel String    @default("balanced") // 'conservative', 'balanced', 'autonomous'
   lastSyncAt    DateTime?
@@ -53,6 +54,7 @@ model Workspace {
   bills                  Bill[]
   batchPayments          BatchPayment[]
   relationColumns        RelationColumn[]
+  imports                Import[]
 }
 
 model Category {
@@ -372,4 +374,16 @@ model RelationLink {
   relationColumn RelationColumn @relation(fields: [relationColumnId], references: [id], onDelete: Cascade)
 
   @@unique([relationColumnId, sourceRecordId, targetRecordId])
+}
+
+model Import {
+  id          String   @id @default(cuid())
+  workspaceId String
+  platform    String   // 'qbo' | 'xero'
+  fileName    String
+  rowCount    Int
+  status      String   @default("completed")
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }

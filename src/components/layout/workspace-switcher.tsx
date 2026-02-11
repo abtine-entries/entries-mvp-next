@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ChevronsUpDown, Plus } from 'lucide-react'
@@ -19,7 +18,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { CreateWorkspaceModal } from '@/app/(authenticated)/create-workspace-modal'
 
 interface Workspace {
   id: string
@@ -37,11 +35,9 @@ export function WorkspaceSwitcher({
 }: WorkspaceSwitcherProps) {
   const { isMobile } = useSidebar()
   const router = useRouter()
-  const [createOpen, setCreateOpen] = useState(false)
 
   return (
-    <>
-      <SidebarMenu>
+    <SidebarMenu>
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -49,12 +45,14 @@ export function WorkspaceSwitcher({
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <div className="flex aspect-square size-8 items-center justify-center">
                   <Image
                     src="/entries-icon.png"
                     alt={org.name}
-                    width={24}
-                    height={24}
+                    width={32}
+                    height={32}
+                    className="rounded-lg"
+                    unoptimized
                   />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
@@ -94,7 +92,7 @@ export function WorkspaceSwitcher({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="gap-2 p-2"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => router.push('/onboarding')}
               >
                 <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                   <Plus className="size-4" />
@@ -106,9 +104,6 @@ export function WorkspaceSwitcher({
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>
-      </SidebarMenu>
-
-      <CreateWorkspaceModal open={createOpen} onOpenChange={setCreateOpen} />
-    </>
+    </SidebarMenu>
   )
 }

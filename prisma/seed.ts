@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 // Database is at project root (relative to where prisma runs)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(__dirname, '..')
-const dbPath = resolve(projectRoot, 'prisma', 'dev.db')
+const dbPath = resolve(projectRoot, 'dev.db')
 
 // Create Prisma client with the adapter
 const adapter = new PrismaBetterSqlite3({ url: dbPath })
