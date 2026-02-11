@@ -2,11 +2,12 @@ import { Suspense } from 'react'
 import { getWorkspaces, getRecentActivity, getGlobalAlertsSummary } from './actions'
 import { ClientTable } from './client-table'
 import { ClientTableSkeleton } from './workspace-list-skeleton'
-import { CreateWorkspaceModal } from './create-workspace-modal'
 import { PageHeader } from '@/components/layout'
 import { HomeGreeting } from './home-greeting'
 import { RecentActivityFeed } from './recent-activity-feed'
 import { AlertsSummary } from './alerts-summary'
+import Image from 'next/image'
+import Link from 'next/link'
 import { Home, Plus, Building2, Activity } from 'lucide-react'
 import { org } from '@/lib/config'
 import { Button } from '@/components/ui/button'
@@ -32,7 +33,7 @@ export default function HomePage() {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
+          { label: org.name, href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" unoptimized /> },
           { label: 'Home', icon: <Home className="h-4 w-4" /> },
         ]}
       />
@@ -48,14 +49,12 @@ export default function HomePage() {
                 <Building2 className="h-4 w-4" />
                 Clients
               </p>
-              <CreateWorkspaceModal
-                trigger={
-                  <Button size="sm" className="h-8">
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Add Client
-                  </Button>
-                }
-              />
+              <Button size="sm" className="h-8" asChild>
+                <Link href="/onboarding">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Client
+                </Link>
+              </Button>
             </div>
             <Suspense fallback={<ClientTableSkeleton />}>
               <ClientList />

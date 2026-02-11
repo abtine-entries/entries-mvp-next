@@ -342,7 +342,10 @@ export type CreateWorkspaceResult = {
   workspaceId?: string
 }
 
-export async function createWorkspace(name: string): Promise<CreateWorkspaceResult> {
+export async function createWorkspace(
+  name: string,
+  platform?: 'qbo' | 'xero' | null
+): Promise<CreateWorkspaceResult> {
   const session = await auth()
 
   if (!session?.user?.id) {
@@ -360,6 +363,7 @@ export async function createWorkspace(name: string): Promise<CreateWorkspaceResu
         name: trimmedName,
         userId: session.user.id,
         qboStatus: 'connected',
+        ...(platform ? { platform } : {}),
       },
     })
 

@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
@@ -214,7 +215,7 @@ export default async function EsmePage({ params }: EsmePageProps) {
     <div className="flex flex-col h-full overflow-hidden">
       <PageHeader
         breadcrumbs={[
-          { label: org.name, href: '/', icon: <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">{org.initials}</span> },
+          { label: org.name, href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" unoptimized /> },
           { label: workspace.name, href: `/workspace/${workspace.id}/esme`, icon: <Building2 className="h-4 w-4" /> },
           { label: 'Esme', icon: <EsmeAvatar className="h-4 w-4" /> },
         ]}

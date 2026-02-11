@@ -32,7 +32,7 @@ export function SourceIcon({ sourceKey, size = 'sm', className }: SourceIconProp
     return (
       <Avatar className={cn(sizeClasses[size], className)}>
         <AvatarFallback className="bg-transparent">
-          <Image src="/entries-icon.png" alt="Entries" width={iconPx} height={iconPx} className="rounded-[3px]" />
+          <Image src="/entries-icon.png" alt="Entries" width={iconPx} height={iconPx} className="rounded-[3px]" unoptimized />
         </AvatarFallback>
       </Avatar>
     )

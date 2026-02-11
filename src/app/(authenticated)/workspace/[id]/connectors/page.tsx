@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/layout'
@@ -22,6 +23,7 @@ import { ConnectorLogo } from '@/components/ui/connector-logo'
 import type { ConnectorType } from '@/components/ui/connector-logo-config'
 import { org } from '@/lib/config'
 import { ConnectorTooltipButton } from './connector-tooltip-button'
+import { ImportGLDialog } from './import-gl-dialog'
 
 interface ConnectorsPageProps {
   params: Promise<{ id: string }>
@@ -145,11 +147,7 @@ export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
           {
             label: org.name,
             href: '/',
-            icon: (
-              <span className="flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground text-[9px] font-semibold">
-                {org.initials}
-              </span>
-            ),
+            icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" unoptimized />,
           },
           {
             label: workspace.name,
@@ -216,6 +214,14 @@ export default async function ConnectorsPage({ params }: ConnectorsPageProps) {
                 })}
               </TableBody>
             </Table>
+          </section>
+
+          {/* Import Section */}
+          <section>
+            <h2 className="text-sm font-medium text-muted-foreground mb-4">Import</h2>
+            <div className="max-w-md">
+              <ImportGLDialog workspaceId={workspace.id} />
+            </div>
           </section>
 
           {/* Available Connectors Section */}

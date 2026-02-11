@@ -259,7 +259,7 @@ export default async function EventPage({ params }: EventPageProps) {
     <div className="flex flex-col h-full">
       <PageHeader
         breadcrumbs={[
-          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" /> },
+          { label: 'Entries', href: '/', icon: <Image src="/entries-icon.png" alt="Entries" width={16} height={16} className="h-4 w-4 rounded-[3px]" unoptimized /> },
           { label: event.workspace.name, href: `/workspace/${workspaceId}/esme`, icon: <Building2 className="h-4 w-4" /> },
           { label: 'Event Feed', href: `/workspace/${workspaceId}/esme`, icon: <Activity className="h-4 w-4" /> },
           { label: event.title },
